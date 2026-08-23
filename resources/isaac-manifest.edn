@@ -1,0 +1,4 @@
+{:id       :isaac.foreman
+ :version  "0.1.0"
+ :builtin? true
+ :factory  isaac.module.protocol/module}
