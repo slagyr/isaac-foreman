@@ -1,4 +1,75 @@
 {:id       :isaac.foreman
  :version  "0.1.0"
  :builtin? true
- :factory  isaac.module.protocol/module}
+ :factory  isaac.module.protocol/module
+
+ :isaac/cli
+ {:foreman
+  {:usage     "foreman <subcommand> [options]"
+   :summary   "Drive and inspect machine instances"
+   :namespace isaac.foreman.cli}}
+
+ :isaac.config/schema
+ {:foreman
+  {:schema
+   {:name        :foreman
+    :type        :map
+    :description "Shared action pool for machines (machine-local :actions wins)"
+    :schema      {:actions
+                  {:type        :map
+                   :description "Named actions shared across machines"
+                   :key-spec    {:type :keyword}
+                   :value-spec  {:type   :map
+                                 :schema {:type    {:type        :keyword
+                                                    :description "Built-in action type (:log, :hail, :notify)"
+                                                    :validations [[:one-of? :log :hail :notify]]}
+                                          :message {:type        :string
+                                                    :description "Printed by :log actions"}
+                                          :band    {:type        :string
+                                                    :description "Hail band for :hail actions"}}}}}}}
+
+  :machines
+  {:entity-dir         "machines"
+   :merge-root-entity? true
+   :schema
+   {:name        "machine table"
+    :type        :map
+    :description "State-machine tables (map of id -> machine)"
+    :key-spec    {:type :string}
+    :value-spec
+    {:name        :machine
+     :type        :map
+     :description "One state machine"
+     :schema      {:initial     {:type        :keyword
+                                 :description "Birth state for new instances"
+                                 :validations [:present?]}
+                   :observers   {:type        :seq
+                                 :description "Observer ids notified of handled transitions"
+                                 :spec        {:type :keyword}}
+                   :actions     {:type        :map
+                                 :description "Named actions local to this machine"
+                                 :key-spec    {:type :keyword}
+                                 :value-spec  {:type   :map
+                                               :schema {:type    {:type        :keyword
+                                                                  :description "Built-in action type"
+                                                                  :validations [[:one-of? :log :hail :notify]]}
+                                                        :message {:type        :string
+                                                                  :description "Printed by :log actions"}
+                                                        :band    {:type        :string
+                                                                  :description "Hail band for :hail actions"}}}}
+                   :states      {:type        :map
+                                 :description "Optional per-state :entry / :exit action lists"
+                                 :key-spec    {:type :keyword}
+                                 :value-spec  {:type   :map
+                                               :schema {:entry {:type :seq :spec {:type :keyword}}
+                                                        :exit  {:type :seq :spec {:type :keyword}}}}}
+                   :transitions {:type        :seq
+                                 :description "Rows {:start :event :end :action}; :* matches any start"
+                                 :spec        {:type   :map
+                                               :schema {:start  {:type :keyword :validations [:present?]}
+                                                        :event  {:type :keyword :validations [:present?]}
+                                                        :end    {:type :keyword :validations [:present?]}
+                                                        :action {:type :any}}}}}}}}}
+
+ :isaac.config/check
+ {:dangling-actions {:fn isaac.foreman.checks/check-dangling-actions}}}

@@ -18,7 +18,6 @@ Feature: Foreman — CLI
                        {:start :lit  :event :dawn :end :dark :action [:douse-lamp]}]}}}
       """
 
-  @wip
     Scenario: start births an instance; signal moves it; status tells the story
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"
@@ -41,7 +40,6 @@ Feature: Foreman — CLI
     And the stderr contains "unknown instance"
     And the exit code is 1
 
-  @wip
     Scenario: actions are recorded as pending; only log actions execute
     Given config file "isaac.edn" containing:
       """
@@ -64,7 +62,6 @@ Feature: Foreman — CLI
       | pending: call-keeper \(hail\) |
     And the stdout does not contain "pending: light-lamp"
 
-  @wip
     Scenario: unhandled events are recorded, never fatal
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     When isaac is run with "foreman signal lighthouse-watch beacon-7 earthquake"
@@ -79,7 +76,6 @@ Feature: Foreman — CLI
     Then the stdout contains "beacon-7: dark -> lit (dusk)"
     And the exit code is 0
 
-  @wip
     Scenario: list surveys a machine's instances, filterable by state
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"

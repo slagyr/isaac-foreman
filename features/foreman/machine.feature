@@ -10,7 +10,6 @@ Feature: Foreman — machines
   Background:
     Given an Isaac root at "isaac-state"
 
-  @wip
     Scenario: machines validate from both forms; dangling references are rejected
     Given config file "isaac.edn" containing:
       """
@@ -21,12 +20,11 @@ Feature: Foreman — machines
          :transitions [{:start :dark :event :dusk :end :lit :action [:light-lamp]}
                        {:start :lit  :event :dawn :end :dark}]}}}
       """
-    And the isaac EDN file "config/machines/harbor-run.edn" exists with:
-      | path                 | value     |
-      | initial              | :moored   |
-      | transitions[0].start | :moored   |
-      | transitions[0].event | :cast-off |
-      | transitions[0].end   | :sailing  |
+    And a file "config/machines/harbor-run.edn" exists with content:
+      """
+      {:initial :moored
+       :transitions [{:start :moored :event :cast-off :end :sailing}]}
+      """
     When isaac is run with "config validate"
     Then the exit code is 0
     Given config file "isaac.edn" containing:
@@ -41,7 +39,6 @@ Feature: Foreman — machines
     And the stderr contains "sound-alarm"
     And the exit code is 1
 
-  @wip
     Scenario: exit, transition, and entry actions fire in order
     Given config file "isaac.edn" containing:
       """
@@ -66,7 +63,6 @@ Feature: Foreman — machines
       | pattern                                                    |
       | (?s)strike-match.*light-lamp.*trim-wick.*dusk: dark -> lit |
 
-  @wip
     Scenario: wildcard transitions fire from any state; instances are isolated
     Given config file "isaac.edn" containing:
       """
