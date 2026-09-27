@@ -12,6 +12,7 @@ Feature: Foreman — event intake
   Background:
     Given an Isaac root at "target/test-state"
     And default Grover setup
+    And principal "keeper" is configured with secret "secret123" and scopes "*"
     And the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
       {:initial :dark
@@ -20,7 +21,7 @@ Feature: Foreman — event intake
       """
 
   Scenario: the foreman-signal tool moves an instance and records the signaling crew
-    Given the crew "bartholomew" allows tools: "foreman-signal"
+    Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
       | path  | value  |
       | model | grover |
@@ -106,7 +107,7 @@ Feature: Foreman — event intake
       | (?s)dusk: dark -> lit\s+\[tide-7\] via http.*dawn: lit -> dark\s+\[tide-8\] via cli |
 
   Scenario: a turn that signals moves the instance; its observations are recorded unhandled
-    Given the crew "bartholomew" allows tools: "foreman-signal"
+    Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
       | path  | value  |
       | model | grover |
