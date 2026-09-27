@@ -87,3 +87,24 @@
                                           :id "beacon-7" :event :dawn :event-id "tide-8"}))]
       (should (str/includes? out "dark -> lit"))
       (should (str/includes? out "lit -> dark")))))
+
+(describe "Foreman restart recovery"
+  (with mem (fs/mem-fs))
+  (around [example]
+    (nexus/-with-nested-nexus {:fs @mem}
+      (fs/mkdirs @mem "/isaac-state/config")
+      (fs/spit @mem "/isaac-state/config/isaac.edn"
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" lighthouse}}))
+      (example)))
+  (it "resumes all instances left with acknowledged but unconsumed events"
+    (doseq [id ["beacon-7" "beacon-9"]]
+      (with-out-str (sut/start! {:fs @mem :root "/isaac-state" :machine "lighthouse-watch" :id id}))
+      (fs/spit @mem (str "/isaac-state/foreman/lighthouse-watch/" id ".events.ednl")
+               (str (pr-str {:type :received :id (str id "-dusk") :machine "lighthouse-watch"
+                             :instance id :event :dusk :source :http :at "2026-03-01T18:00:00Z"}) "\n")))
+    (with-out-str (sut/resume! {:fs @mem :root "/isaac-state"}))
+    (should= ["beacon-7" "beacon-9"]
+             (mapv :id (sut/list-instances {:fs @mem :root "/isaac-state"
+                                             :machine "lighthouse-watch" :state :lit})))))

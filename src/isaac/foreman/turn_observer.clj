@@ -5,7 +5,7 @@
     [isaac.foreman.core :as core]
     [isaac.fs :as fs]))
 
-(defn- emit! [machine instance event ctx]
+(defn emit! [machine instance event ctx]
   (core/signal! {:root (root/current-root) :fs (fs/instance)
                  :machine machine :id instance :event event :source :observer
                  :session (:session-key ctx) :request-id (:request-id ctx)}))
