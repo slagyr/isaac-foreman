@@ -24,7 +24,9 @@
     (nexus/-with-nested-nexus {:fs @mem}
       (fs/mkdirs @mem (str @root "/config"))
       (fs/spit @mem (str @root "/config/isaac.edn")
-               (pr-str {:machines {"lighthouse-watch" lighthouse}}))
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" lighthouse}}))
       (example)))
 
   (it "start prints instance: initial-state"
@@ -58,3 +60,30 @@
                     :id "ghost-9" :event :dusk :now @now})))
 
   )
+
+(describe "durable event intake"
+  (with mem (fs/mem-fs))
+  (with root "/isaac-state")
+  (around [example]
+    (nexus/-with-nested-nexus {:fs @mem}
+      (fs/mkdirs @mem (str @root "/config"))
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" lighthouse}}))
+      (with-out-str (sut/start! {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
+      (example)))
+  (it "acknowledges a duplicate without transitioning again"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7" :event :dusk :event-id "tide-42"}]
+      (with-out-str (sut/signal! opts))
+      (let [result (atom nil)]
+        (with-out-str (reset! result (sut/signal! (assoc opts :source :http))))
+        (should (:duplicate @result)))))
+  (it "applies unconsumed received events before a new event"
+    (fs/spit @mem (str @root "/foreman/lighthouse-watch/beacon-7.events.ednl")
+             (str (pr-str {:type :received :id "tide-7" :machine "lighthouse-watch" :instance "beacon-7"
+                           :event :dusk :source :http :at "2026-03-01T18:00:00Z"}) "\n"))
+    (let [out (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                                          :id "beacon-7" :event :dawn :event-id "tide-8"}))]
+      (should (str/includes? out "dark -> lit"))
+      (should (str/includes? out "lit -> dark")))))

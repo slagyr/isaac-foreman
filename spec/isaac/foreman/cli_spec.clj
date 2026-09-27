@@ -23,7 +23,9 @@
     (nexus/-with-nested-nexus {:fs @mem}
       (fs/mkdirs @mem (str @root "/config"))
       (fs/spit @mem (str @root "/config/isaac.edn")
-               (pr-str {:machines {"lighthouse-watch" lighthouse}}))
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" lighthouse}}))
       (example)))
 
   (it "start then signal then status through the CLI dispatcher"

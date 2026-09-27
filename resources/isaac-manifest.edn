@@ -1,7 +1,13 @@
 {:id       :isaac.foreman
- :version  "0.1.1"
+ :version  "0.2.0"
  :builtin? true
- :factory  isaac.module.protocol/module
+ :factory  isaac.foreman.module/create-module
+
+ :isaac.agent/tools
+ {:foreman-signal {:factory isaac.foreman.tool/foreman-signal-tool-factory}}
+
+ :isaac.http/route
+ [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler}]
 
  :isaac/cli
  {:foreman

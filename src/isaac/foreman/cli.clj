@@ -11,6 +11,7 @@
 
 (def option-spec
   [["-h" "--help" "Show help"]
+   [nil  "--id ID" "Caller-supplied event id"]
    [nil  "--state STATE" "Filter list to instances currently in this state"]])
 
 (def ^:private help-text
@@ -59,9 +60,9 @@
     0
     (catch Exception e (fail e))))
 
-(defn- run-signal [opts machine id event]
+(defn- run-signal [opts machine id event event-id]
   (try
-    (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event)))
+    (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event) :event-id event-id :source :cli))
     0
     (catch Exception e (fail e))))
 
@@ -99,7 +100,7 @@
       (let [[machine id event] arguments]
         (if (or (str/blank? machine) (str/blank? id) (str/blank? event))
           (do (print-err! "Usage: isaac foreman signal <machine> <id> <event>") 1)
-          (run-signal opts machine id event)))
+          (run-signal opts machine id event (:id options))))
 
       (= "status" sub)
       (let [[machine id] arguments]

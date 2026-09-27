@@ -59,38 +59,74 @@
     (with-id (:id opts) rec)))
 
 (defn record-transition!
-  [{:keys [fs from to event actions now] :as opts}]
+  [{:keys [fs from to event actions now event-id source data crew session request-id] :as opts}]
   (let [edn-path (instance-edn-path opts)
         ev-path  (instance-events-path opts)
         rec      (or (read-edn fs edn-path)
                      (throw (ex-info (str "unknown instance: " (name (:id opts)))
                                      {:id (:id opts)})))
         updated  (assoc rec :state to :since now)]
-    (append-event! fs ev-path {:type    :transition
+    (append-event! fs ev-path (cond-> {:type    :transition
                                :from    from
                                :to      to
                                :event   event
                                :actions (vec actions)
-                               :at      now})
+                               :at      now
+                               :id      event-id
+                               :source  source
+                               :data    data
+                               :crew    crew
+                               :session session
+                               :request-id request-id}
+                         (nil? event-id) (dissoc :id :source :data :crew :session :request-id)))
     (write-edn! fs edn-path updated)
     (with-id (:id opts) updated)))
 
 (defn record-unhandled!
-  [{:keys [fs state event now] :as opts}]
+  [{:keys [fs state event now event-id source data crew session request-id] :as opts}]
   (let [edn-path (instance-edn-path opts)
         ev-path  (instance-events-path opts)
         rec      (or (read-edn fs edn-path)
                      (throw (ex-info (str "unknown instance: " (name (:id opts)))
                                      {:id (:id opts)})))]
-    (append-event! fs ev-path {:type  :unhandled
+    (append-event! fs ev-path (cond-> {:type  :unhandled
                                :event event
                                :state state
-                               :at    now})
+                               :at    now
+                               :id    event-id
+                               :source source
+                               :data data
+                               :crew crew
+                               :session session
+                               :request-id request-id}
+                         (nil? event-id) (dissoc :id :source :data :crew :session :request-id)))
     (with-id (:id opts) rec)))
 
 (defn history
   [{:keys [fs] :as opts}]
   (or (read-events fs (instance-events-path opts)) []))
+
+(defn receive!
+  "Append the incoming envelope before acknowledging it. Duplicate ids are audit records only."
+  [{:keys [fs event-id] :as opts} envelope]
+  (let [history (history opts)
+        duplicate? (some #(= event-id (:id %)) history)]
+    (append-event! fs (instance-events-path opts)
+                   (assoc envelope :type (if duplicate? :duplicate :received)))
+    {:id event-id :duplicate (boolean duplicate?)}))
+
+(defn unconsumed [opts]
+  (let [records (history opts)
+        done (into #{} (keep #(when (#{:transition :unhandled} (:type %)) (:id %))) records)]
+    (filterv #(and (= :received (:type %)) (not (contains? done (:id %)))) records)))
+
+(declare list-instances)
+
+(defn all-instance-keys [{:keys [fs root]}]
+  (let [dir (str root "/foreman")]
+    (for [machine (when (fs/exists? fs dir) (fs/children fs dir))
+          inst (list-instances {:fs fs :root root :machine machine})]
+      {:machine machine :id (:id inst)})))
 
 (defn set-pending!
   [{:keys [fs pending] :as opts}]

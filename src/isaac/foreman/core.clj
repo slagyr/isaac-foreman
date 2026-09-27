@@ -76,63 +76,76 @@
         (execute-log! spec)))
     pending))
 
-(defn signal!
-  "Fire `event` at an existing instance. Unhandled events warn and stay put."
-  [{:keys [root fs machine id event now] :as opts}]
-  (let [cfg     (load-cfg opts)
-        table   (machine-table cfg machine)
-        inst    (store/get-instance {:fs fs :root root :machine machine :id id})
-        shared  (get-in cfg [:foreman :actions])
-        ts      (now-iso now)]
-    (when-not table
-      (throw (ex-info (str "unknown machine: " (name machine))
-                      {:machine machine})))
-    (when-not inst
-      (throw (ex-info (str "unknown instance: " (name id))
-                      {:id id})))
-    (let [result (machine/step table (:state inst) event)]
-      (if (= :unhandled (:status result))
-        (do
-          (store/record-unhandled! {:fs      fs
-                                    :root    root
-                                    :machine machine
-                                    :id      id
-                                    :state   (:state inst)
-                                    :event   event
-                                    :now     ts})
+(defn- consume! [opts table shared envelope]
+  (let [{:keys [fs root machine id]} opts
+        {:keys [event source data crew session request-id]} envelope
+        ts   (:at envelope)
+        inst (store/get-instance opts)
+        result (machine/step table (:state inst) event)
+        details (merge (select-keys opts [:fs :root :machine :id])
+                       (select-keys envelope [:source :data :crew :session :request-id])
+                       {:event event :event-id (:id envelope) :now ts})]
+    (if (= :unhandled (:status result))
+      (do (store/record-unhandled! (assoc details :state (:state inst)))
           (binding [*out* *err*]
             (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")")))
           inst)
-        (let [pending (apply-actions! table shared (:actions result))
-              updated (store/record-transition! {:fs      fs
-                                                 :root    root
-                                                 :machine machine
-                                                 :id      id
-                                                 :from    (:state inst)
-                                                 :to      (:state result)
-                                                 :event   event
-                                                 :actions (:actions result)
-                                                 :now     ts})
-              with-p  (store/set-pending! {:fs      fs
-                                           :root    root
-                                           :machine machine
-                                           :id      id
-                                           :pending pending})]
-          (observer/notify! {:observers (:observers table)
-                             :machine   machine
-                             :id        id
-                             :from      (:state inst)
-                             :to        (:state result)
-                             :event     event})
-          (println (format-transition id (:state inst) (:state result) event))
-          with-p)))))
+      (let [pending (apply-actions! table shared (:actions result))
+            updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
+                                                      :actions (:actions result)))
+            with-p (store/set-pending! (assoc opts :pending pending))]
+        (observer/notify! {:observers (:observers table) :machine machine :id id
+                           :from (:state inst) :to (:state result) :event event})
+        (println (format-transition id (:state inst) (:state result) event))
+        with-p))))
+
+(defn- drain! [opts table shared]
+  (doseq [envelope (store/unconsumed opts)]
+    (consume! opts table shared envelope)))
+
+(defn signal!
+  "Durably receive an event, then drain prior events in arrival order."
+  [{:keys [root fs machine id event now event-id source data crew session request-id] :as opts}]
+  (let [cfg    (load-cfg opts)
+        table  (machine-table cfg machine)
+        inst   (store/get-instance opts)
+        shared (get-in cfg [:foreman :actions])]
+    (when-not table
+      (throw (ex-info (str "unknown machine: " (name machine)) {:machine machine})))
+    (when-not inst
+      (throw (ex-info (str "unknown instance: " (name id)) {:id id})))
+    (let [eid (or event-id (str (java.util.UUID/randomUUID)))
+          envelope (cond-> {:id eid :machine (name machine) :instance (name id)
+                            :event event :source (or source :cli) :at (now-iso now)}
+                     data (assoc :data data)
+                     crew (assoc :crew crew)
+                     session (assoc :session session)
+                     request-id (assoc :request-id request-id))
+          receipt (store/receive! (assoc opts :event-id eid) envelope)]
+      (when-not (:duplicate receipt)
+        (drain! opts table shared))
+      receipt)))
+
+(defn resume!
+  "Sweep all persisted instances on server start, applying each unconsumed event."
+  [{:keys [root fs] :as opts}]
+  (doseq [instance (store/all-instance-keys opts)]
+    (let [params (merge opts instance)
+          cfg (load-cfg params)]
+      (when-let [table (machine-table cfg (:machine instance))]
+        (drain! params table (get-in cfg [:foreman :actions]))))))
 
 (defn- history-line [rec]
+  (let [suffix (when (:id rec) (str "  [" (:id rec) "] via " (name (:source rec))
+                                  (when (:crew rec) (str " (crew " (:crew rec) ", session " (:session rec) ")"))))]
+
   (case (:type rec)
     :transition (str (name (:event rec)) ": "
-                     (name (:from rec)) " -> " (name (:to rec)))
-    :unhandled  (str "unhandled: " (name (:event rec)))
-    (pr-str rec)))
+                     (name (:from rec)) " -> " (name (:to rec)) suffix)
+    :unhandled  (str "unhandled: " (name (:event rec)) suffix)
+    :duplicate (str "duplicate: " (name (:event rec)) suffix)
+    :received nil
+    (pr-str rec))))
 
 (defn- pending-line [entry]
   (str (name (:name entry)) " (" (name (:type entry)) ")"))
@@ -147,7 +160,7 @@
                        (->> (:pending-actions inst)
                             (map pending-line)
                             (str/join ", "))))
-        hist    (map history-line history)
+        hist    (keep history-line history)
         action-names (mapcat :actions (filter #(= :transition (:type %)) history))]
     (->> (concat [header]
                  (when pending [pending])
