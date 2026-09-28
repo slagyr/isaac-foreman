@@ -1,5 +1,5 @@
 {:id       :isaac.foreman
- :version  "0.2.0"
+ :version  "0.3.0"
  :builtin? true
  :factory  isaac.foreman.module/create-module
 
@@ -27,12 +27,13 @@
                    :key-spec    {:type :keyword}
                    :value-spec  {:type   :map
                                  :schema {:type    {:type        :keyword
-                                                    :description "Built-in action type (:log, :hail, :notify)"
-                                                    :validations [[:one-of? :log :hail :notify]]}
+                                                    :description "Built-in action type (:log, :turn, :notify)"
+                                                    :validations [[:one-of? :log :turn :notify]]}
                                           :message {:type        :string
                                                     :description "Printed by :log actions"}
-                                          :band    {:type        :string
-                                                    :description "Hail band for :hail actions"}}}}}}}
+                                          :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
+                                          :resource-pools {:type :seq :spec {:type :string}}
+                                          :prompt {:type :string}}}}}}}
 
   :machines
   {:entity-dir         "machines"
@@ -58,11 +59,12 @@
                                  :value-spec  {:type   :map
                                                :schema {:type    {:type        :keyword
                                                                   :description "Built-in action type"
-                                                                  :validations [[:one-of? :log :hail :notify]]}
+                                                                  :validations [[:one-of? :log :turn :notify]]}
                                                         :message {:type        :string
                                                                   :description "Printed by :log actions"}
-                                                        :band    {:type        :string
-                                                                  :description "Hail band for :hail actions"}}}}
+                                                        :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
+                                                        :resource-pools {:type :seq :spec {:type :string}}
+                                                        :prompt {:type :string}}}}
                    :states      {:type        :map
                                  :description "Optional per-state :entry / :exit action lists"
                                  :key-spec    {:type :keyword}

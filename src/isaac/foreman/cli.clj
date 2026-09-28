@@ -1,7 +1,9 @@
 (ns isaac.foreman.cli
   "isaac foreman — start, signal, status, and list machine instances."
   (:require
+    [clojure.edn :as edn]
     [clojure.string :as str]
+    [clojure.walk :as walk]
     [clojure.tools.cli :as tools-cli]
     [isaac.cli.api :as cli-api]
     [isaac.config.root :as root]
@@ -12,6 +14,7 @@
 (def option-spec
   [["-h" "--help" "Show help"]
    [nil  "--id ID" "Caller-supplied event id"]
+   [nil  "--data EDN" "Event data as an EDN map"]
    [nil  "--state STATE" "Filter list to instances currently in this state"]])
 
 (def ^:private help-text
@@ -23,10 +26,12 @@
              "Subcommands:"
              "  start  <machine> <id>   Birth an instance at the machine's :initial state"
              "  signal <machine> <id> <event>   Fire an event at an instance"
+             "  retry  <machine> <id>   Resubmit pending turn actions"
              "  status <machine> <id>   Show one instance (state, since, pending, history)"
              "  list   <machine>        Survey a machine's instances"
              ""
              "Options:"
+             "  --data EDN     Signal event data as an EDN map"
              "  --state STATE  Filter list to the given current state"
              "  -h, --help     Show help"]))
 
@@ -60,9 +65,20 @@
     0
     (catch Exception e (fail e))))
 
-(defn- run-signal [opts machine id event event-id]
+(defn- run-signal [opts machine id event event-id data]
   (try
-    (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event) :event-id event-id :source :cli))
+    (let [parsed (when data
+                   (walk/postwalk #(if (symbol? %) (str %) %) (edn/read-string data)))]
+      (when (and data (not (map? parsed)))
+        (throw (ex-info "--data must be an EDN map" {})))
+      (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event)
+                           :event-id event-id :data parsed :source :cli)))
+    0
+    (catch Exception e (fail e))))
+
+(defn- run-retry [opts machine id]
+  (try
+    (core/retry! (assoc (env opts) :machine machine :id id))
     0
     (catch Exception e (fail e))))
 
@@ -82,6 +98,12 @@
   (let [raw      (or (:_raw-args opts) [])
         sub      (first raw)
         rest-args (rest raw)
+        data-at  (.indexOf (vec rest-args) "--data")
+        data-args (when (<= 0 data-at) (drop (inc data-at) rest-args))
+        ;; Shells split an unquoted EDN map on whitespace. Keep its tokens together.
+        rest-args (if (and (seq data-args) (str/starts-with? (first data-args) "{"))
+                    (concat (take (inc data-at) rest-args) [(str/join " " data-args)])
+                    rest-args)
         {:keys [options arguments errors]} (tools-cli/parse-opts rest-args option-spec)]
     (cond
       (seq errors)
@@ -100,7 +122,13 @@
       (let [[machine id event] arguments]
         (if (or (str/blank? machine) (str/blank? id) (str/blank? event))
           (do (print-err! "Usage: isaac foreman signal <machine> <id> <event>") 1)
-          (run-signal opts machine id event (:id options))))
+          (run-signal opts machine id event (:id options) (:data options))))
+
+      (= "retry" sub)
+      (let [[machine id] arguments]
+        (if (or (str/blank? machine) (str/blank? id))
+          (do (print-err! "Usage: isaac foreman retry <machine> <id>") 1)
+          (run-retry opts machine id)))
 
       (= "status" sub)
       (let [[machine id] arguments]
@@ -132,5 +160,6 @@
 (defmethod cli-api/subcommands :foreman [_id]
   [{:name "start" :summary "Birth an instance at the machine's :initial state"}
    {:name "signal" :summary "Fire an event at an instance"}
+   {:name "retry" :summary "Resubmit pending turn actions"}
    {:name "status" :summary "Show one instance (state, since, pending, history)"}
    {:name "list" :summary "Survey a machine's instances"}])

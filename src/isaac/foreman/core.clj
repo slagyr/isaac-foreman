@@ -7,7 +7,9 @@
     [isaac.foreman.observer :as observer]
     [isaac.foreman.store :as store]
     [isaac.fs :as fs]
-    [isaac.tool.memory :as memory]))
+    [isaac.tool.memory :as memory]
+    [isaac.turn.submit :as turn-submit]
+    [isaac.turn.worker :as worker]))
 
 (defn now-iso
   "ISO-8601 instant, truncated to seconds when no fractional part is needed."
@@ -39,9 +41,51 @@
   (when-let [msg (:message spec)]
     (println msg)))
 
-(defn- pending-entry [action-name spec]
-  {:name action-name
-   :type (classify-action spec)})
+(defn- pending-entry [action-name spec machine id envelope]
+  (cond-> {:name action-name :type (classify-action spec)}
+    (= :turn (:type spec))
+    (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
+           :data (:data envelope))))
+
+(defn- fill-prompt [template machine id data]
+  (str/replace (or template "") #"\{\{(machine|instance|data\.[^}]+)\}\}"
+               (fn [[_ field]]
+                 (str (case field
+                        "machine" (name machine)
+                        "instance" (name id)
+                        (get data (keyword (subs field 5)) ""))))))
+
+(defn- submit-pending! [opts table shared entry]
+  (let [spec (resolve-action table (:name entry) shared)]
+    (try
+      (let [request (turn-submit/submit!
+                      (merge (select-keys opts [:fs :root :machine :id])
+                             {:frequencies (:frequencies spec)
+                              :resource-pools (:resource-pools spec)
+                              :prompt (fill-prompt (:prompt spec) (:machine opts) (:id opts) (:data entry))
+                              :observers [[:foreman (name (:machine opts)) (name (:id opts))]]
+                              :key (:key entry)}))]
+        (assoc entry :request-id (:id request) :error nil))
+      (catch Exception e
+        (assoc entry :error (str/replace (ex-message e) #"^unknown resource pool: " "unknown resource pool "))))))
+
+(defn retry!
+  "Resubmit persisted actions; Agent's idempotency key handles a lost acknowledgement."
+  [{:keys [machine id] :as opts}]
+  (let [cfg (load-cfg opts)
+        table (machine-table cfg machine)
+        shared (get-in cfg [:foreman :actions])
+        entries (:pending-actions (store/get-instance opts))
+        updated (mapv (fn [entry]
+                        (if (and (= :turn (:type entry)) (nil? (:request-id entry)))
+                          (submit-pending! opts table shared entry)
+                          entry)) entries)]
+    (store/set-pending! (assoc opts :pending updated))
+    (when (some #(and (= :turn (:type %)) (:request-id %)) updated)
+      (worker/tick!))
+    (doseq [{:keys [name type request-id]} updated :when (and (= :turn type) request-id)]
+      (println (str (clojure.core/name name) " (turn) submitted " request-id)))
+    updated))
 
 (defn- format-transition [id from to event]
   (str (name id) ": " (name from) " -> " (name to) " (" (name event) ")"))
@@ -63,14 +107,14 @@
       (println (str (name id) ": " (name (:state inst))))
       inst)))
 
-(defn- apply-actions! [machine shared action-names]
+(defn- apply-actions! [machine shared action-names machine-name id envelope]
   (let [resolved (mapv (fn [n]
                          (let [spec (resolve-action machine n shared)]
                            {:name n :spec spec :type (classify-action spec)}))
                        action-names)
         pending  (->> resolved
                       (remove #(= :log (:type %)))
-                      (mapv #(pending-entry (:name %) (:spec %))))]
+                      (mapv #(pending-entry (:name %) (:spec %) machine-name id envelope)))]
     (doseq [{:keys [type spec]} resolved]
       (when (= :log type)
         (execute-log! spec)))
@@ -90,14 +134,15 @@
           (binding [*out* *err*]
             (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")")))
           inst)
-      (let [pending (apply-actions! table shared (:actions result))
-            updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
-                                                      :actions (:actions result)))
-            with-p (store/set-pending! (assoc opts :pending pending))]
+      (let [pending (apply-actions! table shared (:actions result) machine id envelope)
+            _ (store/record-transition! (assoc details :from (:state inst) :to (:state result)
+                                                :actions (:actions result)))
+            _ (when (seq pending) (store/set-pending! (assoc opts :pending pending)))]
         (observer/notify! {:observers (:observers table) :machine machine :id id
                            :from (:state inst) :to (:state result) :event event})
         (println (format-transition id (:state inst) (:state result) event))
-        with-p))))
+        (retry! opts)
+        (store/get-instance opts)))))
 
 (defn- drain! [opts table shared]
   (doseq [envelope (store/unconsumed opts)]
@@ -133,7 +178,8 @@
     (let [params (merge opts instance)
           cfg (load-cfg params)]
       (when-let [table (machine-table cfg (:machine instance))]
-        (drain! params table (get-in cfg [:foreman :actions]))))))
+        (drain! params table (get-in cfg [:foreman :actions]))
+        (retry! params)))))
 
 (defn- history-line [rec]
   (let [suffix (when (:id rec) (str "  [" (:id rec) "] via " (name (:source rec))
@@ -148,7 +194,9 @@
     (pr-str rec))))
 
 (defn- pending-line [entry]
-  (str (name (:name entry)) " (" (name (:type entry)) ")"))
+  (str (name (:name entry)) " (" (name (:type entry)) ")"
+       (when-let [error (:error entry)] (str " failed: " error))
+       (when-let [request-id (:request-id entry)] (str " submitted " request-id))))
 
 (defn format-status
   "Render one instance for `foreman status`."

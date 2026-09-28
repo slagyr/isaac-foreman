@@ -5,6 +5,9 @@
     [isaac.foreman.core :as sut]
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]
+    [isaac.foreman.store :as store]
+    [isaac.turn.submit :as submit]
+    [isaac.turn.worker :as worker]
     [speclj.core :refer :all]))
 
 (def lighthouse
@@ -87,6 +90,78 @@
                                           :id "beacon-7" :event :dawn :event-id "tide-8"}))]
       (should (str/includes? out "dark -> lit"))
       (should (str/includes? out "lit -> dark")))))
+
+(describe "Foreman turn actions"
+  (with mem (fs/mem-fs))
+  (with root "/isaac-state")
+  (with table {:initial :dark
+               :actions {:tend-lamp {:type :turn :frequencies {:session "lamp-room"}
+                                      :resource-pools ["dock"]
+                                      :prompt "Light {{instance}} at {{machine}}: {{data.tide}}"}}
+               :transitions [{:start :dark :event :dusk :end :tending :action [:tend-lamp]}]})
+  (around [example]
+    (nexus/-with-nested-nexus {:fs @mem}
+      (fs/mkdirs @mem (str @root "/config"))
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" @table}}))
+      (with-out-str (sut/start! {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
+      (example)))
+
+  (it "persists the transition before submitting a keyed turn with event data"
+    (let [request (atom nil)]
+      (with-redefs [submit/submit! (fn [req]
+                                     (should= :tending (:state (store/get-instance req)))
+                                     (reset! request req)
+                                     {:id "turn-17"})]
+        (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"
+                                    :event :dusk :event-id "tide-1" :data {:tide "high"}})))
+      (should= "lighthouse-watch/beacon-7/tide-1/tend-lamp" (:key @request))
+      (should= "Light beacon-7 at lighthouse-watch: high" (:prompt @request))
+      (should= {:session "lamp-room"} (:frequencies @request))
+      (should= ["dock"] (:resource-pools @request))
+      (should= [[:foreman "lighthouse-watch" "beacon-7"]] (:observers @request))
+      (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
+                             "tend-lamp (turn) submitted turn-17"))))
+
+  (it "keeps a submitted action after a turn signals during the wake"
+    (let [table (assoc @table :transitions (conj (:transitions @table)
+                                               {:start :tending :event :lit :end :lit}))]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                         :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                         :providers {"grover" {}} :machines {"lighthouse-watch" table}})))
+    (with-redefs [submit/submit! (fn [_] {:id "turn-17"})
+                  worker/tick! (fn []
+                                 (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                                                              :id "beacon-7" :event :lit})))]
+      (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                                  :id "beacon-7" :event :dusk})))
+    (should= "turn-17" (:request-id (first (:pending-actions
+                                            (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))))
+
+  (it "wakes a newly accepted turn after persisting its request id"
+    (let [at-wake (atom nil)]
+      (with-redefs [submit/submit! (fn [_] {:id "turn-17"})
+                    worker/tick! (fn [] (reset! at-wake (:pending-actions
+                                                         (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))]
+        (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                                    :id "beacon-7" :event :dusk})))
+      (should= "turn-17" (:request-id (first @at-wake)))))
+
+  (it "retains failed pending actions and retries with the same key"
+    (with-redefs [submit/submit! (fn [_] (throw (ex-info "unknown resource pool drydock" {})))]
+      (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"
+                                  :event :dusk :event-id "tide-1"})))
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (should (str/includes? (with-out-str (sut/status opts)) "failed: unknown resource pool drydock"))
+      (with-redefs [submit/submit! (fn [req]
+                                     (should= "lighthouse-watch/beacon-7/tide-1/tend-lamp" (:key req))
+                                     {:id "turn-17"})]
+        (with-out-str (sut/retry! opts)))
+      (should (str/includes? (with-out-str (sut/status opts)) "submitted turn-17"))))
+  )
 
 (describe "Foreman restart recovery"
   (with mem (fs/mem-fs))

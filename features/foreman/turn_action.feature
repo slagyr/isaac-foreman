@@ -1,4 +1,3 @@
-@wip
 Feature: Foreman — turn actions
   A :turn action submits one turn to Agent when its transition fires:
   {:type :turn :frequencies {...} :resource-pools [...] :prompt "..."}.

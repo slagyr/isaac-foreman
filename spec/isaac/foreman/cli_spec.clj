@@ -1,6 +1,7 @@
 (ns isaac.foreman.cli-spec
   (:require
     [clojure.string :as str]
+    [isaac.foreman.core :as core]
     [isaac.foreman.cli :as sut]
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]
@@ -39,6 +40,26 @@
       (should (str/includes? start-out "beacon-7: dark"))
       (should (str/includes? sig-out "beacon-7: dark -> lit (dusk)"))
       (should (re-find #"beacon-7\s+lit\s+since 2026-03-01T18:00" st-out))))
+
+  (it "signal accepts EDN data and passes it to the machine"
+    (let [received (atom nil)]
+      (with-redefs [core/signal! (fn [opts] (reset! received opts))]
+        (should= 0 (sut/run {:fs @mem :root @root :_raw-args
+                             ["signal" "lighthouse-watch" "beacon-7" "dusk" "--data" "{:tide \"high\"}"]})))
+      (should= {:tide "high"} (:data @received))))
+
+  (it "signal accepts shell-split EDN data"
+    (let [received (atom nil)]
+      (with-redefs [core/signal! (fn [opts] (reset! received opts))]
+        (should= 0 (sut/run {:fs @mem :root @root :_raw-args
+                             ["signal" "lighthouse-watch" "beacon-7" "dusk" "--data" "{:tide" "high" "}"]})))
+      (should= {:tide "high"} (:data @received))))
+
+  (it "retry dispatches pending actions through the CLI"
+    (let [received (atom nil)]
+      (with-redefs [core/retry! (fn [opts] (reset! received opts))]
+        (should= 0 (sut/run {:fs @mem :root @root :_raw-args ["retry" "lighthouse-watch" "beacon-7"]})))
+      (should= "beacon-7" (:id @received))))
 
   (it "double-start reports already exists on stderr and exits 1"
     (let [opts {:fs @mem :root @root :now @now}]
