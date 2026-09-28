@@ -122,6 +122,8 @@
       (should= {:session "lamp-room"} (:frequencies @request))
       (should= ["dock"] (:resource-pools @request))
       (should= [[:foreman "lighthouse-watch" "beacon-7"]] (:observers @request))
+      (should= {:kind :foreman :machine "lighthouse-watch" :instance "beacon-7"}
+               (:origin @request))
       (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
                              "tend-lamp (turn) submitted turn-17"))))
 

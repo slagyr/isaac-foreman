@@ -64,6 +64,8 @@
                               :resource-pools (:resource-pools spec)
                               :prompt (fill-prompt (:prompt spec) (:machine opts) (:id opts) (:data entry))
                               :observers [[:foreman (name (:machine opts)) (name (:id opts))]]
+                              :origin {:kind :foreman :machine (name (:machine opts))
+                                       :instance (name (:id opts))}
                               :key (:key entry)}))]
         (assoc entry :request-id (:id request) :error nil))
       (catch Exception e
