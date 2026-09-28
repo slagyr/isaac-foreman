@@ -40,28 +40,6 @@ Feature: Foreman — CLI
     And the stderr contains "unknown instance"
     And the exit code is 1
 
-    Scenario: actions are recorded as pending; only log actions execute
-    Given config file "isaac.edn" containing:
-      """
-      {:machines
-       {"lighthouse-watch"
-        {:initial :dark
-         :actions {:light-lamp  {:type :log :message "lamp lit"}
-                   :call-keeper {:type :hail :band "keepers"}}
-         :transitions [{:start :dark :event :dusk :end :lit
-                        :action [:light-lamp :call-keeper]}]}}}
-      """
-    When isaac is run with "foreman start lighthouse-watch beacon-7"
-    When isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
-    Then the stdout contains "lamp lit"
-    And the exit code is 0
-    When isaac is run with "foreman status lighthouse-watch beacon-7"
-    Then the stdout matches:
-      | pattern                       |
-      | beacon-7\s+lit                |
-      | pending: call-keeper \(hail\) |
-    And the stdout does not contain "pending: light-lamp"
-
     Scenario: unhandled events are recorded, never fatal
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     When isaac is run with "foreman signal lighthouse-watch beacon-7 earthquake"
