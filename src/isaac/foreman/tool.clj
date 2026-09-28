@@ -1,6 +1,5 @@
 (ns isaac.foreman.tool
   (:require
-    [isaac.config.root :as root]
     [isaac.foreman.core :as core]
     [isaac.fs :as fs]
     [isaac.session.store.spi :as session-store]
@@ -10,7 +9,8 @@
   (let [args (bounds/string-key-map args)
         session (get args "session_key")
         store (bounds/session-store args)
-        crew (some-> (session-store/get-session store session) :crew)]
+        crew (or (get args "caller_crew")
+                 (some-> (session-store/get-session store session) :crew))]
     (try
       (let [out (with-out-str
                   (core/signal! {:root (bounds/root args) :fs (bounds/filesystem args)
@@ -23,7 +23,8 @@
         {:isError true :error (ex-message e)}))))
 
 (defn foreman-signal-tool-factory [_]
-  {:description "Signal an existing Foreman machine instance."
+  {:builtin? true
+   :description "Signal an existing Foreman machine instance."
    :parameters {:type "object"
                 :properties {"machine" {:type "string"} "instance" {:type "string"}
                              "event" {:type "string"} "data" {:type "object"}

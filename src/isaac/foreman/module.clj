@@ -1,6 +1,6 @@
 (ns isaac.foreman.module
   (:require
-    [isaac.config.root :as root]
+    [isaac.config.loader :as loader]
     [isaac.foreman.core :as core]
     [isaac.foreman.turn-observer :as turn-observer]
     [isaac.fs :as fs]
@@ -9,4 +9,4 @@
 (defn create-module []
   (module/module {:on-load (fn [_]
                              (turn-observer/register!)
-                             (core/resume! {:root (root/current-root) :fs (fs/instance)}))}))
+                             (core/resume! {:root (loader/root) :fs (fs/instance)}))}))

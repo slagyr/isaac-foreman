@@ -83,6 +83,16 @@
         (should= :earthquake (:event rec))
         (should= :dark (:state rec)))))
 
+  (it "separates an injected received row from the next append before draining"
+    (sut/create-instance! {:fs @mem :root @root :machine "lighthouse-watch"
+                           :id "beacon-7" :state :dark :now "2026-03-01T18:00:00Z"})
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          path (str @root "/foreman/lighthouse-watch/beacon-7.events.ednl")]
+      (fs/spit @mem path (pr-str {:type :received :id "tide-7" :event :dusk}))
+      (sut/receive! (assoc opts :event-id "tide-8")
+                    {:id "tide-8" :event :dawn :source :cli})
+      (should= ["tide-7" "tide-8"] (mapv :id (sut/history opts)))))
+
   (it "lists instances, optionally filtered by current state"
     (sut/create-instance! {:fs @mem :root @root :machine "lighthouse-watch"
                            :id "beacon-7" :state :dark :now "2026-03-01T18:00:00Z"})

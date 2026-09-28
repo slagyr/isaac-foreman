@@ -26,7 +26,11 @@
 
 (defn- append-event! [fs* path rec]
   (fs/mkdirs fs* (fs/parent path))
-  (fs/spit fs* path (str (pr-str rec) "\n") :append true))
+  (let [prefix (when (and (fs/exists? fs* path)
+                          (let [text (fs/slurp fs* path)]
+                            (and (seq text) (not (str/ends-with? text "\n")))))
+                 "\n")]
+    (fs/spit fs* path (str prefix (pr-str rec) "\n") :append true)))
 
 (defn- read-events [fs* path]
   (when (fs/exists? fs* path)

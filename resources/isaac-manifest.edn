@@ -4,7 +4,7 @@
  :factory  isaac.foreman.module/create-module
 
  :isaac.agent/tools
- {:foreman-signal {:factory isaac.foreman.tool/foreman-signal-tool-factory}}
+ {:foreman/signal {:factory isaac.foreman.tool/foreman-signal-tool-factory}}
 
  :isaac.http/route
  [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler}]

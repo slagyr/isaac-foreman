@@ -1,4 +1,3 @@
-@wip
 Feature: Foreman — event intake
   Events reach a machine instance through several doors: the crew
   foreman-signal tool, POST /foreman/events, the CLI, and turn observers.

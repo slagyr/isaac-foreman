@@ -3,7 +3,7 @@
     [cheshire.core :as json]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.config.root :as root]
+    [isaac.config.loader :as loader]
     [isaac.foreman.core :as core]
     [isaac.fs :as fs]))
 
@@ -22,7 +22,7 @@
       (let [body (:body request)
             text (if (string? body) body (slurp body))
             payload (if (= :edn format) (edn/read-string text) (json/parse-string text true))
-            receipt (core/signal! {:root (root/current-root) :fs (fs/instance)
+            receipt (core/signal! {:root (loader/root) :fs (fs/instance)
                                    :machine (:machine payload) :id (:instance payload)
                                    :event (keyword (:event payload)) :data (:data payload)
                                    :event-id (:id payload) :source :http})]
