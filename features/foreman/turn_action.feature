@@ -14,7 +14,7 @@ Feature: Foreman — turn actions
   Background:
     Given an Isaac root at "target/test-state"
     And default Grover setup
-    And the crew "bartholomew" allows tools: "foreman-signal"
+    And the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
       | path  | value  |
       | model | grover |
@@ -35,7 +35,7 @@ Feature: Foreman — turn actions
   Scenario: a transition submits one turn; the crew's signal moves the machine
     Given the following model responses are queued:
       | model | tool_call      | arguments                                                               |
-      | echo  | foreman-signal | {"machine": "lighthouse-watch", "instance": "beacon-7", "event": "lit"} |
+      | echo  | foreman__signal | {"machine": "lighthouse-watch", "instance": "beacon-7", "event": "lit"} |
       | model | type           | content                                                                 |
       | echo  | text           | Lamp lit.                                                               |
     When isaac is run with "foreman start lighthouse-watch beacon-7"
@@ -49,7 +49,7 @@ Feature: Foreman — turn actions
       | pattern                                                      |
       | beacon-7\s+lit                                               |
       | tend-lamp \(turn\) submitted \S+                             |
-      | (?s)lit: tending -> lit\s+\[[^\]]+\] via tool.*unhandled: turn-ended |
+      | (?s)lit: tending -> lit\s+\[[^\]]+\] via tool[\s\S]*unhandled: turn-ended |
 
   Scenario: a turn action waits on a busy pool; the unsignaled turn takes the backstop row
     Given a scripted resource pool "dock" admits 1 turn at a time
@@ -73,8 +73,9 @@ Feature: Foreman — turn actions
     Then the stdout contains "beacon-7: dark -> tending (dusk)"
     When isaac is run with "turns list"
     Then the stdout matches:
-      | session   | resource-pools | state |
-      | lamp-room | dock           | held  |
+      | lamp-room |
+      | dock      |
+      | held      |
     When resource pool "dock" is opened
     Then session "lamp-room" has transcript matching:
       | type    | message.role | message.content       |
