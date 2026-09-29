@@ -1,4 +1,3 @@
-@wip
 Feature: Foreman — machine tests
   `isaac foreman test <file.feature>…` runs Gherkin tests against the
   machines in the current Isaac root's config. Foreman provides the steps;

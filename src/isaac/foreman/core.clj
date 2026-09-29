@@ -22,17 +22,16 @@
        (str/replace s #"\.\d+Z$" "Z")
        s))))
 
-(defn- load-cfg [{:keys [root fs]}]
+(defn load-cfg
+  "Load the current Isaac root's config, sliced/validated the same way every
+   Foreman CLI subcommand does."
+  [{:keys [root fs]}]
   (loader/load-config! root fs "foreman"))
 
 (defn machine-table
   "Look up a named machine in config. Returns nil when missing."
   [cfg machine-name]
   (get-in cfg [:machines (name machine-name)]))
-
-(defn- resolve-action [machine action-name shared]
-  (or (get-in machine [:actions action-name])
-      (get shared action-name)))
 
 (defn- classify-action [spec]
   (or (:type spec) :unknown))
@@ -47,22 +46,14 @@
     (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
            :data (:data envelope))))
 
-(defn- fill-prompt [template machine id data]
-  (str/replace (or template "") #"\{\{(machine|instance|data\.[^}]+)\}\}"
-               (fn [[_ field]]
-                 (str (case field
-                        "machine" (name machine)
-                        "instance" (name id)
-                        (get data (keyword (subs field 5)) ""))))))
-
 (defn- submit-pending! [opts table shared entry]
-  (let [spec (resolve-action table (:name entry) shared)]
+  (let [spec (machine/resolve-action table (:name entry) shared)]
     (try
       (let [request (turn-submit/submit!
                       (merge (select-keys opts [:fs :root :machine :id])
                              {:frequencies (:frequencies spec)
                               :resource-pools (:resource-pools spec)
-                              :prompt (fill-prompt (:prompt spec) (:machine opts) (:id opts) (:data entry))
+                              :prompt (machine/fill-prompt (:prompt spec) (:machine opts) (:id opts) (:data entry))
                               :observers [[:foreman (name (:machine opts)) (name (:id opts))]]
                               :origin {:kind :foreman :machine (name (:machine opts))
                                        :instance (name (:id opts))}
@@ -92,9 +83,6 @@
 (defn- format-transition [id from to event]
   (str (name id) ": " (name from) " -> " (name to) " (" (name event) ")"))
 
-(defn- refusal-message [event state]
-  (str "no transition for " (name event) " from " (name state)))
-
 (defn- unhandled-outcome
   "Find this event id's :unhandled history record, if that is how it resolved."
   [opts eid]
@@ -120,7 +108,7 @@
 
 (defn- apply-actions! [machine shared action-names machine-name id envelope]
   (let [resolved (mapv (fn [n]
-                         (let [spec (resolve-action machine n shared)]
+                         (let [spec (machine/resolve-action machine n shared)]
                            {:name n :spec spec :type (classify-action spec)}))
                        action-names)
         pending  (->> resolved
@@ -183,7 +171,7 @@
       (when-not (:duplicate receipt)
         (drain! opts table shared))
       (if-let [refused (and (not= :observer src) (unhandled-outcome opts eid))]
-        (throw (ex-info (refusal-message (:event refused) (:state refused))
+        (throw (ex-info (machine/refusal-message (:event refused) (:state refused))
                         {:foreman/refused true :event (:event refused) :state (:state refused)}))
         receipt))))
 

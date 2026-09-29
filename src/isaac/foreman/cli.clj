@@ -8,6 +8,7 @@
     [isaac.cli.api :as cli-api]
     [isaac.config.root :as root]
     [isaac.foreman.core :as core]
+    [isaac.foreman.test-runner :as test-runner]
     [isaac.fs :as fs]
     [isaac.tool.memory :as memory]))
 
@@ -29,6 +30,7 @@
              "  retry  <machine> <id>   Resubmit pending turn actions"
              "  status <machine> <id>   Show one instance (state, since, pending, history)"
              "  list   <machine>        Survey a machine's instances"
+             "  test   <file.feature>…  Run Gherkin machine tests (Foreman-provided steps)"
              ""
              "Options:"
              "  --data EDN     Signal event data as an EDN map"
@@ -94,6 +96,11 @@
     0
     (catch Exception e (fail e))))
 
+(defn- run-test [opts files]
+  (try
+    (test-runner/run-files! (env opts) files)
+    (catch Exception e (fail e))))
+
 (defn run [opts]
   (let [raw      (or (:_raw-args opts) [])
         sub      (first raw)
@@ -142,6 +149,11 @@
           (do (print-err! "Usage: isaac foreman list <machine>") 1)
           (run-list opts machine (:state options))))
 
+      (= "test" sub)
+      (if (empty? arguments)
+        (do (print-err! "Usage: isaac foreman test <file.feature>...") 1)
+        (run-test opts arguments))
+
       :else
       (do
         (print-err! (str "Unknown foreman subcommand: " sub))
@@ -162,4 +174,5 @@
    {:name "signal" :summary "Fire an event at an instance"}
    {:name "retry" :summary "Resubmit pending turn actions"}
    {:name "status" :summary "Show one instance (state, since, pending, history)"}
-   {:name "list" :summary "Survey a machine's instances"}])
+   {:name "list" :summary "Survey a machine's instances"}
+   {:name "test" :summary "Run Gherkin machine tests (Foreman-provided steps)"}])

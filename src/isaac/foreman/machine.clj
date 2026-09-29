@@ -1,5 +1,7 @@
 (ns isaac.foreman.machine
-  "Pure state-machine engine: parse, validate, and step. No I/O.")
+  "Pure state-machine engine: parse, validate, and step. No I/O."
+  (:require
+    [clojure.string :as str]))
 
 (defn parse
   "Accept a machine table. Already-a-map tables pass through."
@@ -65,3 +67,26 @@
     {:state   state
      :actions []
      :status  :unhandled}))
+
+(defn resolve-action
+  "Look up action-name in the machine's own :actions, falling back to the
+   shared :foreman :actions pool."
+  [machine action-name shared]
+  (or (get-in machine [:actions action-name])
+      (get shared action-name)))
+
+(defn fill-prompt
+  "Fill {{machine}}, {{instance}}, and {{data.<key>}} placeholders in a
+   prompt template. A missing data key fills empty."
+  [template machine id data]
+  (str/replace (or template "") #"\{\{(machine|instance|data\.[^}]+)\}\}"
+               (fn [[_ field]]
+                 (str (case field
+                        "machine" (name machine)
+                        "instance" (name id)
+                        (get data (keyword (subs field 5)) ""))))))
+
+(defn refusal-message
+  "The message recorded (and thrown) when a signal has no matching transition."
+  [event state]
+  (str "no transition for " (name event) " from " (name state)))
