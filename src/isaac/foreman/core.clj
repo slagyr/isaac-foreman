@@ -92,6 +92,15 @@
 (defn- format-transition [id from to event]
   (str (name id) ": " (name from) " -> " (name to) " (" (name event) ")"))
 
+(defn- refusal-message [event state]
+  (str "no transition for " (name event) " from " (name state)))
+
+(defn- unhandled-outcome
+  "Find this event id's :unhandled history record, if that is how it resolved."
+  [opts eid]
+  (some #(when (and (= eid (:id %)) (= :unhandled (:type %))) %)
+        (store/history opts)))
+
 (defn start!
   "Birth an instance at the machine's :initial state."
   [{:keys [root fs machine id now] :as opts}]
@@ -133,8 +142,9 @@
                        {:event event :event-id (:id envelope) :now ts})]
     (if (= :unhandled (:status result))
       (do (store/record-unhandled! (assoc details :state (:state inst)))
-          (binding [*out* *err*]
-            (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")")))
+          (when (= :observer source)
+            (binding [*out* *err*]
+              (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")"))))
           inst)
       (let [pending (apply-actions! table shared (:actions result) machine id envelope)
             _ (store/record-transition! (assoc details :from (:state inst) :to (:state result)
@@ -162,8 +172,9 @@
     (when-not inst
       (throw (ex-info (str "unknown instance: " (name id)) {:id id})))
     (let [eid (or event-id (str (java.util.UUID/randomUUID)))
+          src (or source :cli)
           envelope (cond-> {:id eid :machine (name machine) :instance (name id)
-                            :event event :source (or source :cli) :at (now-iso now)}
+                            :event event :source src :at (now-iso now)}
                      data (assoc :data data)
                      crew (assoc :crew crew)
                      session (assoc :session session)
@@ -171,7 +182,10 @@
           receipt (store/receive! (assoc opts :event-id eid) envelope)]
       (when-not (:duplicate receipt)
         (drain! opts table shared))
-      receipt)))
+      (if-let [refused (and (not= :observer src) (unhandled-outcome opts eid))]
+        (throw (ex-info (refusal-message (:event refused) (:state refused))
+                        {:foreman/refused true :event (:event refused) :state (:state refused)}))
+        receipt))))
 
 (defn resume!
   "Sweep all persisted instances on server start, applying each unconsumed event."

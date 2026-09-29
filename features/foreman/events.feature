@@ -161,7 +161,6 @@ Feature: Foreman — event intake
       | pattern                                          |
       | turn-ended: dark -> unlit\s+\[[^\]]+\] via observer |
 
-  @wip
   Scenario: a crew's signal with no transition gets a tool error it can read (isaac-qrl1)
     Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
@@ -185,7 +184,6 @@ Feature: Foreman — event intake
       | pattern         |
       | beacon-7\s+dark |
 
-  @wip
   Scenario: POST /foreman/events with no transition answers 409 (isaac-qrl1)
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And a POST request is made to "/foreman/events":

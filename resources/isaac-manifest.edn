@@ -1,5 +1,5 @@
 {:id       :isaac.foreman
- :version  "0.4.0"
+ :version  "0.5.0"
  :builtin? true
  :factory  isaac.foreman.module/create-module
 

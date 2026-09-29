@@ -28,7 +28,10 @@
                                    :event-id (:id payload) :source :http})]
         (response format 202 receipt))
       (catch clojure.lang.ExceptionInfo e
-        (response format (if (re-find #"unknown (machine|instance)" (ex-message e)) 404 400)
+        (response format (cond
+                           (:foreman/refused (ex-data e)) 409
+                           (re-find #"unknown (machine|instance)" (ex-message e)) 404
+                           :else 400)
                   {:error (ex-message e)}))
       (catch Exception e
         (response format 400 {:error (ex-message e)})))))

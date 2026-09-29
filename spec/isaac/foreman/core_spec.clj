@@ -47,15 +47,22 @@
       (should (str/includes? out "lamp lit"))
       (should (str/includes? out "beacon-7: dark -> lit (dusk)"))))
 
-  (it "unhandled events warn on stderr, exit without throwing, leave state"
+  (it "a deliberate signal with no transition is refused; the instance stays put"
     (sut/start! {:fs @mem :root @root :machine "lighthouse-watch"
                  :id "beacon-7" :now @now})
-    (let [err (java.io.StringWriter.)]
-      (binding [*err* err]
-        (with-out-str
-          (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
-                        :id "beacon-7" :event :earthquake :now @now})))
-      (should (str/includes? (str err) "unhandled: earthquake (state dark)"))))
+    (should-throw Exception #"no transition for earthquake from dark"
+      (with-out-str
+        (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                      :id "beacon-7" :event :earthquake :now @now})))
+    (should= :dark (:state (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))
+
+  (it "an observation with no transition stays quiet; the instance stays put"
+    (sut/start! {:fs @mem :root @root :machine "lighthouse-watch"
+                 :id "beacon-7" :now @now})
+    (with-out-str
+      (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
+                    :id "beacon-7" :event :earthquake :now @now :source :observer}))
+    (should= :dark (:state (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))
 
   (it "unknown instance throws with unknown instance"
     (should-throw Exception #"unknown instance"
@@ -137,7 +144,7 @@
     (with-redefs [submit/submit! (fn [_] {:id "turn-17"})
                   worker/tick! (fn []
                                  (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
-                                                              :id "beacon-7" :event :lit})))]
+                                                              :id "beacon-7" :event :lit :source :observer})))]
       (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
                                   :id "beacon-7" :event :dusk})))
     (should= "turn-17" (:request-id (first (:pending-actions

@@ -42,7 +42,6 @@ Feature: Foreman — CLI
     And the stderr contains "unknown instance"
     And the exit code is 1
 
-    @wip
     Scenario: a signal with no transition is refused; the instance stays put (isaac-qrl1)
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     When isaac is run with "foreman signal lighthouse-watch beacon-7 earthquake"
