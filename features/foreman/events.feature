@@ -160,3 +160,43 @@ Feature: Foreman — event intake
     Then the stdout matches:
       | pattern                                          |
       | turn-ended: dark -> unlit\s+\[[^\]]+\] via observer |
+
+  @wip
+  Scenario: a crew's signal with no transition gets a tool error it can read (isaac-qrl1)
+    Given the crew "bartholomew" allows tools: "foreman/signal"
+    And the isaac EDN file "config/crew/bartholomew.edn" exists with:
+      | path  | value  |
+      | model | grover |
+    And the following sessions exist:
+      | name      | crew        |
+      | lamp-room | bartholomew |
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    Given the following model responses are queued:
+      | model | tool_call       | arguments                                                                |
+      | echo  | foreman__signal | {"machine": "lighthouse-watch", "instance": "beacon-7", "event": "dawn"} |
+      | model | type            | content                                                                  |
+      | echo  | text            | Still dark.                                                              |
+    When the user sends "is it morning?" on session "lamp-room"
+    Then session "lamp-room" has transcript matching:
+      | type    | message.role | message.isError | message.content                                   |
+      | message | toolResult   | true            | #"(?s).*no transition for dawn from dark.*"       |
+    When isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern         |
+      | beacon-7\s+dark |
+
+  @wip
+  Scenario: POST /foreman/events with no transition answers 409 (isaac-qrl1)
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And a POST request is made to "/foreman/events":
+      | key                  | value                                                                    |
+      | header.Content-Type  | application/json                                                         |
+      | header.Authorization | Bearer secret123                                                         |
+      | body                 | {"machine": "lighthouse-watch", "instance": "beacon-7", "event": "dawn"} |
+    Then the response status is 409
+    And the response body has "error" equal to "no transition for dawn from dark"
+    When isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern         |
+      | beacon-7\s+dark |
+

@@ -26,11 +26,12 @@ Feature: Foreman — turn actions
        :actions {:tend-lamp {:type        :turn
                              :frequencies {:session "lamp-room"}
                              :prompt      "Light the lamp at {{instance}} ({{machine}}); tide {{data.tide}}."}}
-       :transitions [{:start :dark    :event :dusk       :end :tending :action [:tend-lamp]}
+       :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :lit        :end :lit}
                      {:start :tending :event :turn-ended :end :unlit}]}
       """
 
+  @wip
   Scenario: a transition submits one turn; the crew's signal moves the machine
     Given the following model responses are queued:
       | model | tool_call      | arguments                                                               |
@@ -50,6 +51,7 @@ Feature: Foreman — turn actions
       | tend-lamp \(turn\) submitted \S+                             |
       | (?s)lit: tending -> lit\s+\[[^\]]+\] via tool[\s\S]*unhandled: turn-ended |
 
+  @wip
   Scenario: a turn action waits on a busy pool; the unsignaled turn takes the backstop row
     Given a scripted resource pool "dock" admits 1 turn at a time
     And resource pool "dock" is closed
@@ -60,7 +62,7 @@ Feature: Foreman — turn actions
                              :frequencies    {:session "lamp-room"}
                              :resource-pools ["dock"]
                              :prompt         "Light the lamp at {{instance}}."}}
-       :transitions [{:start :dark    :event :dusk       :end :tending :action [:tend-lamp]}
+       :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :lit        :end :lit}
                      {:start :tending :event :turn-ended :end :unlit}]}
       """
@@ -85,6 +87,7 @@ Feature: Foreman — turn actions
       | beacon-7\s+unlit                                         |
       | turn-ended: tending -> unlit\s+\[[^\]]+\] via observer   |
 
+  @wip
   Scenario: a refused submission stays pending with its error until retried
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -93,7 +96,7 @@ Feature: Foreman — turn actions
                              :frequencies    {:session "lamp-room"}
                              :resource-pools ["drydock"]
                              :prompt         "Light the lamp at {{instance}}."}}
-       :transitions [{:start :dark    :event :dusk       :end :tending :action [:tend-lamp]}
+       :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :turn-ended :end :unlit}]}
       """
     When isaac is run with "foreman start lighthouse-watch beacon-7"
@@ -117,6 +120,7 @@ Feature: Foreman — turn actions
       | beacon-7\s+unlit                 |
       | tend-lamp \(turn\) submitted \S+ |
 
+  @wip
   Scenario: a retry after Foreman lost the request id makes no second turn
     The instance file below is what Foreman leaves if it dies after Agent
     accepted the request but before the request id was recorded.
@@ -129,7 +133,7 @@ Feature: Foreman — turn actions
                              :frequencies    {:session "lamp-room"}
                              :resource-pools ["dock"]
                              :prompt         "Light the lamp at {{instance}}."}}
-       :transitions [{:start :dark    :event :dusk       :end :tending :action [:tend-lamp]}
+       :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :turn-ended :end :unlit}]}
       """
     And the following model responses are queued:

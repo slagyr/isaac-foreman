@@ -1,7 +1,9 @@
 Feature: Foreman — CLI
   `isaac foreman` drives and inspects machine instances: start births an
   instance at :initial, signal fires events, status shows one instance
-  (state, since, pending actions, history), list surveys a machine.
+  (state, since, pending actions, history), list surveys a machine. A
+  signal with no transition from the current state is refused (exit 1)
+  and recorded in history; the instance does not move.
   Every transition appends to the instance's durable history before it
   is acknowledged.
 
@@ -14,10 +16,11 @@ Feature: Foreman — CLI
         {:initial :dark
          :actions {:light-lamp {:type :log :message "lamp lit"}
                    :douse-lamp {:type :log :message "lamp doused"}}
-         :transitions [{:start :dark :event :dusk :end :lit  :action [:light-lamp]}
-                       {:start :lit  :event :dawn :end :dark :action [:douse-lamp]}]}}}
+         :transitions [{:start :dark :event :dusk :end :lit  :actions [:light-lamp]}
+                       {:start :lit  :event :dawn :end :dark :actions [:douse-lamp]}]}}}
       """
 
+    @wip
     Scenario: start births an instance; signal moves it; status tells the story
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"
@@ -40,11 +43,12 @@ Feature: Foreman — CLI
     And the stderr contains "unknown instance"
     And the exit code is 1
 
-    Scenario: unhandled events are recorded, never fatal
+    @wip
+    Scenario: a signal with no transition is refused; the instance stays put (isaac-qrl1)
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     When isaac is run with "foreman signal lighthouse-watch beacon-7 earthquake"
-    Then the stderr contains "unhandled: earthquake (state dark)"
-    And the exit code is 0
+    Then the stderr contains "no transition for earthquake from dark"
+    And the exit code is 1
     When isaac is run with "foreman status lighthouse-watch beacon-7"
     Then the stdout matches:
       | pattern               |
@@ -54,6 +58,7 @@ Feature: Foreman — CLI
     Then the stdout contains "beacon-7: dark -> lit (dusk)"
     And the exit code is 0
 
+    @wip
     Scenario: list surveys a machine's instances, filterable by state
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"
