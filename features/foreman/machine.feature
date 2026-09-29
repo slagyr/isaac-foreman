@@ -10,7 +10,6 @@ Feature: Foreman — machines
   Background:
     Given an Isaac root at "isaac-state"
 
-    @wip
     Scenario: machines validate from both forms; dangling references are rejected
     Given config file "isaac.edn" containing:
       """
@@ -40,7 +39,6 @@ Feature: Foreman — machines
     And the stderr contains "sound-alarm"
     And the exit code is 1
 
-    @wip
     Scenario: exit, transition, and entry actions fire in order
     Given config file "isaac.edn" containing:
       """
@@ -65,7 +63,6 @@ Feature: Foreman — machines
       | pattern                                                    |
       | (?s)strike-match.*light-lamp.*trim-wick.*dusk: dark -> lit |
 
-    @wip
     Scenario: wildcard transitions fire from any state; instances are isolated
     Given config file "isaac.edn" containing:
       """
@@ -89,7 +86,6 @@ Feature: Foreman — machines
       | pattern                                        |
       | (?s)dusk: dark -> lit.*storm: lit -> sheltered |
 
-    @wip
     Scenario: a row names its actions as a vector under :actions (isaac-50zy)
     Given config file "isaac.edn" containing:
       """

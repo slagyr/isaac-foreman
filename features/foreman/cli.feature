@@ -20,7 +20,6 @@ Feature: Foreman — CLI
                        {:start :lit  :event :dawn :end :dark :actions [:douse-lamp]}]}}}
       """
 
-    @wip
     Scenario: start births an instance; signal moves it; status tells the story
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"
@@ -58,7 +57,6 @@ Feature: Foreman — CLI
     Then the stdout contains "beacon-7: dark -> lit (dusk)"
     And the exit code is 0
 
-    @wip
     Scenario: list surveys a machine's instances, filterable by state
     Given the current time is "2026-03-01T18:00:00"
     When isaac is run with "foreman start lighthouse-watch beacon-7"

@@ -10,11 +10,8 @@
   (set (keys (:actions machine))))
 
 (defn- transition-actions [row]
-  (let [action (:action row)]
-    (cond
-      (nil? action)    []
-      (sequential? action) (vec action)
-      :else            [action])))
+  (let [actions (:actions row)]
+    (if (sequential? actions) (vec actions) [])))
 
 (defn- duplicate-row-keys [transitions]
   (->> transitions

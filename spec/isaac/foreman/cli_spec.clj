@@ -11,8 +11,8 @@
   {:initial     :dark
    :actions     {:light-lamp {:type :log :message "lamp lit"}
                  :douse-lamp {:type :log :message "lamp doused"}}
-   :transitions [{:start :dark :event :dusk :end :lit :action [:light-lamp]}
-                 {:start :lit :event :dawn :end :dark :action [:douse-lamp]}]})
+   :transitions [{:start :dark :event :dusk :end :lit :actions [:light-lamp]}
+                 {:start :lit :event :dawn :end :dark :actions [:douse-lamp]}]})
 
 (describe "isaac.foreman.cli"
 

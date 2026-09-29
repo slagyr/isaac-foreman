@@ -1,16 +1,14 @@
 (ns isaac.foreman.checks
-  "Post-load config check: dangling action refs on every machine table.")
+  "Post-load config checks: dangling action refs and :actions shape on every
+   machine table.")
 
 (defn- action-names [machine shared]
   (set (concat (keys (:actions machine))
                (keys shared))))
 
 (defn- transition-actions [row]
-  (let [action (:action row)]
-    (cond
-      (nil? action)        []
-      (sequential? action) (vec action)
-      :else                [action])))
+  (let [actions (:actions row)]
+    (if (sequential? actions) (vec actions) [])))
 
 (defn- state-actions [machine]
   (mapcat (fn [decl]
@@ -38,3 +36,29 @@
                         :value (str "dangling action reference: " (name action))}))
                    (or (:machines config) {})))
      :warnings []}))
+
+(defn- raw-machines
+  "Machine tables as written, before schema conform strips unrecognized keys
+   (isaac-50zy: conform silently drops a legacy :action key, so detecting it
+   requires the pre-conform data — result:root for isaac.edn's :machines,
+   result:raw for config/machines/<id>.edn entity files)."
+  [ctx]
+  (merge (get-in ctx [:result :root :machines])
+         (get-in ctx [:result :raw :machines])))
+
+(defn- legacy-action-errors [machine-id row]
+  (when (contains? row :action)
+    [{:key   (str "machines." machine-id)
+      :value (str "transition row uses :action — rename to :actions: " (pr-str (:action row)))}]))
+
+(defn check-actions-shape
+  "Reject transition rows that still use :action — rows always name their
+   actions as a vector under :actions. (A non-vector :actions is already
+   rejected by the machine schema itself.)"
+  [ctx]
+  {:errors   (vec
+               (mapcat
+                 (fn [[machine-id machine]]
+                   (mapcat #(legacy-action-errors machine-id %) (:transitions machine)))
+                 (raw-machines ctx)))
+   :warnings []})

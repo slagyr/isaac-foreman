@@ -1,5 +1,5 @@
 {:id       :isaac.foreman
- :version  "0.3.0"
+ :version  "0.4.0"
  :builtin? true
  :factory  isaac.foreman.module/create-module
 
@@ -72,12 +72,15 @@
                                                :schema {:entry {:type :seq :spec {:type :keyword}}
                                                         :exit  {:type :seq :spec {:type :keyword}}}}}
                    :transitions {:type        :seq
-                                 :description "Rows {:start :event :end :action}; :* matches any start"
+                                 :description "Rows {:start :event :end :actions}; :* matches any start"
                                  :spec        {:type   :map
-                                               :schema {:start  {:type :keyword :validations [:present?]}
-                                                        :event  {:type :keyword :validations [:present?]}
-                                                        :end    {:type :keyword :validations [:present?]}
-                                                        :action {:type :any}}}}}}}}}
+                                               :schema {:start   {:type :keyword :validations [:present?]}
+                                                        :event   {:type :keyword :validations [:present?]}
+                                                        :end     {:type :keyword :validations [:present?]}
+                                                        :actions {:type        :seq
+                                                                  :spec        {:type :keyword}
+                                                                  :description "Vector of action names fired by this transition, in order"}}}}}}}}}
 
  :isaac.config/check
- {:dangling-actions {:fn isaac.foreman.checks/check-dangling-actions}}}
+ {:dangling-actions {:fn isaac.foreman.checks/check-dangling-actions}
+  :actions-shape    {:fn isaac.foreman.checks/check-actions-shape}}}

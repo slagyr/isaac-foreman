@@ -8,8 +8,8 @@
   {:initial     :dark
    :actions     {:light-lamp {:type :log :message "lamp lit"}
                  :douse-lamp {:type :log :message "lamp doused"}}
-   :transitions [{:start :dark :event :dusk :end :lit :action [:light-lamp]}
-                 {:start :lit :event :dawn :end :dark :action [:douse-lamp]}]})
+   :transitions [{:start :dark :event :dusk :end :lit :actions [:light-lamp]}
+                 {:start :lit :event :dawn :end :dark :actions [:douse-lamp]}]})
 
 (describe "isaac.foreman.machine"
 
@@ -27,7 +27,7 @@
 
     (it "rejects a dangling action reference"
       (let [result (sut/validate {:initial     :adrift
-                                  :transitions [{:start :adrift :event :storm :end :sunk :action [:sound-alarm]}]})]
+                                  :transitions [{:start :adrift :event :storm :end :sunk :actions [:sound-alarm]}]})]
         (should-not (:ok result))
         (should (some #(re-find #"sound-alarm" (str %)) (:errors result)))))
 
@@ -61,7 +61,7 @@
                                    :trim-wick    {:type :log :message "wick trimmed"}}
                      :states      {:dark {:exit [:strike-match]}
                                    :lit  {:entry [:trim-wick]}}
-                     :transitions [{:start :dark :event :dusk :end :lit :action [:light-lamp]}]}
+                     :transitions [{:start :dark :event :dusk :end :lit :actions [:light-lamp]}]}
             result  (sut/step machine :dark :dusk)]
         (should= :lit (:state result))
         (should= [:strike-match :light-lamp :trim-wick] (:actions result))))
@@ -79,7 +79,7 @@
       (let [machine {:initial     :dark
                      :actions     {:take-shelter {:type :log :message "keeper shelters"}}
                      :transitions [{:start :dark :event :dusk :end :lit}
-                                   {:start :* :event :storm :end :sheltered :action [:take-shelter]}]}
+                                   {:start :* :event :storm :end :sheltered :actions [:take-shelter]}]}
             from-dark (sut/step machine :dark :storm)
             from-lit  (sut/step machine :lit :storm)]
         (should= :sheltered (:state from-dark))

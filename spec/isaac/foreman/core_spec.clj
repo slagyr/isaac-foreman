@@ -14,8 +14,8 @@
   {:initial     :dark
    :actions     {:light-lamp {:type :log :message "lamp lit"}
                  :douse-lamp {:type :log :message "lamp doused"}}
-   :transitions [{:start :dark :event :dusk :end :lit :action [:light-lamp]}
-                 {:start :lit :event :dawn :end :dark :action [:douse-lamp]}]})
+   :transitions [{:start :dark :event :dusk :end :lit :actions [:light-lamp]}
+                 {:start :lit :event :dawn :end :dark :actions [:douse-lamp]}]})
 
 (describe "isaac.foreman.core"
 
@@ -98,7 +98,7 @@
                :actions {:tend-lamp {:type :turn :frequencies {:session "lamp-room"}
                                       :resource-pools ["dock"]
                                       :prompt "Light {{instance}} at {{machine}}: {{data.tide}}"}}
-               :transitions [{:start :dark :event :dusk :end :tending :action [:tend-lamp]}]})
+               :transitions [{:start :dark :event :dusk :end :tending :actions [:tend-lamp]}]})
   (around [example]
     (nexus/-with-nested-nexus {:fs @mem}
       (fs/mkdirs @mem (str @root "/config"))
