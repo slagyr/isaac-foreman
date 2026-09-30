@@ -5,8 +5,8 @@ module that owns **machines** — durable state-machine instances that react
 to events and fire actions, including submitting turns to other crews. If
 you haven't read `isaac.foundation` (config mechanics, modules,
 `handbook__configure` itself) or `isaac.agent` (crews, sessions,
-frequencies, turns, resource pools) yet, read those first — this chapter
-assumes both.
+frequencies — see `isaac.agent#frequencies` — turns, resource pools) yet,
+read those first — this chapter assumes both.
 
 Foreman doesn't decide *where* work happens or *who* does it — it decides
 *what happens next* given the current state and an event. A machine's
@@ -83,9 +83,9 @@ its own action of the same name. Three types are declared in the schema:
   else; it doesn't persist, doesn't ride hail, doesn't submit a turn.
   Fields: `config:foreman.actions["tend-lamp"].message`.
 - **`:turn`** — submits one turn to `isaac.agent` when the transition
-  fires. Fields: `config:foreman.actions["tend-lamp"].frequencies`
-  (an `isaac.agent` frequencies map — crew/session/tags/prefer/create,
-  passed through **untouched**: Foreman never itself picks a session or a
+  fires. Fields: `config:foreman.actions["tend-lamp"].frequencies` (an
+  `isaac.agent#frequencies` map — crew/session/tags/prefer/create, passed
+  through **untouched**: Foreman never itself picks a session or a
   directory), `config:foreman.actions["tend-lamp"].resource-pools` (pool
   ids the turn must lease before it runs — same admission mechanism as any
   other turn, see `isaac.agent`), and
@@ -119,9 +119,9 @@ only to shadow it entirely.
 ### Troubleshooting
 
 - **A `:turn` action's turn goes to the wrong session, or none at all.**
-  Foreman passes `:frequencies` straight to `isaac.agent`'s session
-  matching untouched — troubleshoot it as an ordinary frequencies problem
-  (see `isaac.agent`), not a Foreman-specific one.
+  Foreman passes `:frequencies` straight to `isaac.agent`'s matching
+  untouched — troubleshoot it as an ordinary frequencies problem (see
+  `isaac.agent#frequencies`), not a Foreman-specific one.
 - **An action seems to silently do nothing.** If its `:type` is
   `:notify`, that's the current, unimplemented gap above — not a bug in
   your config. Use `:log` or `:turn` for anything you need to actually
