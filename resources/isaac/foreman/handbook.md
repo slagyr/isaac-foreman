@@ -1,19 +1,3 @@
-<!--
-Lint convention (isaac.foreman.handbook-chapter-spec, isaac-7nmy): a backtick
-`config:<dotted.path>` reference (no angle-bracket placeholder inside the
-path) is checked against the composed config schema, and the word right
-after `isaac ` in `isaac <command>` is checked against the registered
-top-level CLI commands. Keep both literal and real when you write one — the
-lint fails the build once either drifts from what Isaac actually exposes.
-`<placeholder>` shapes (e.g. `config:<dotted.path>` itself, or
-`<module-id>#<slug>`) are intentionally skipped. Machine and action names in
-config-path examples below (`lighthouse-watch`, `tend-lamp`, …) are
-illustrative, matching this module's own feature-file fixtures — they name
-no real config key, so they're written with bracket-string syntax
-(`machines["lighthouse-watch"]`) rather than dotted, which is how any
-arbitrary entity id or map key resolves against the schema.
--->
-
 # isaac.foreman — Isaac's operating handbook, orchestration machines
 
 You are a crew running inside Isaac. This chapter is isaac-foreman's: the
