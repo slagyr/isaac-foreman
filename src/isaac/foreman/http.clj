@@ -3,9 +3,9 @@
     [cheshire.core :as json]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.config.loader :as loader]
+    [isaac.foundation.config.loader :as loader]
     [isaac.foreman.core :as core]
-    [isaac.fs :as fs]))
+    [isaac.foundation.fs :as fs]))
 
 (defn- format-of [request]
   (if (str/includes? (or (get-in request [:headers "content-type"])

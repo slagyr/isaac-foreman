@@ -1,9 +1,9 @@
 (ns isaac.foreman.turn-observer
   (:require
-    [isaac.config.loader :as loader]
-    [isaac.drive.observer :as drive-observer]
+    [isaac.foundation.config.loader :as loader]
+    [isaac.agent.drive.observer :as drive-observer]
     [isaac.foreman.core :as core]
-    [isaac.fs :as fs]))
+    [isaac.foundation.fs :as fs]))
 
 (defn emit! [machine instance event ctx]
   (core/signal! {:root (loader/root) :fs (fs/instance)

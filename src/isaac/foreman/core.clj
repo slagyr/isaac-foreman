@@ -2,14 +2,14 @@
   "Start / signal / status / list — I/O orchestration around the pure engine."
   (:require
     [clojure.string :as str]
-    [isaac.config.loader :as loader]
+    [isaac.foundation.config.loader :as loader]
     [isaac.foreman.machine :as machine]
     [isaac.foreman.observer :as observer]
     [isaac.foreman.store :as store]
-    [isaac.fs :as fs]
-    [isaac.tool.memory :as memory]
-    [isaac.turn.submit :as turn-submit]
-    [isaac.turn.worker :as worker]))
+    [isaac.foundation.fs :as fs]
+    [isaac.agent.tool.memory :as memory]
+    [isaac.agent.turn.submit :as turn-submit]
+    [isaac.agent.turn.worker :as worker]))
 
 (defn now-iso
   "ISO-8601 instant, truncated to seconds when no fractional part is needed."

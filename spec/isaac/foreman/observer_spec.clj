@@ -1,7 +1,7 @@
 (ns isaac.foreman.observer-spec
   (:require
     [isaac.foreman.observer :as sut]
-    [isaac.logger :as log]
+    [isaac.foundation.logger :as log]
     [speclj.core :refer :all]))
 
 (describe "isaac.foreman.observer"

@@ -1,6 +1,6 @@
 (ns isaac.foreman.turn-observer-spec
   (:require
-    [isaac.drive.observer :as drive]
+    [isaac.agent.drive.observer :as drive]
     [isaac.foreman.turn-observer :as sut]
     [speclj.core :refer :all]))
 

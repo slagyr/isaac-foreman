@@ -5,12 +5,12 @@
     [clojure.string :as str]
     [clojure.walk :as walk]
     [clojure.tools.cli :as tools-cli]
-    [isaac.cli.api :as cli-api]
-    [isaac.config.root :as root]
+    [isaac.foundation.cli.api :as cli-api]
+    [isaac.foundation.config.root :as root]
     [isaac.foreman.core :as core]
     [isaac.foreman.test-runner :as test-runner]
-    [isaac.fs :as fs]
-    [isaac.tool.memory :as memory]))
+    [isaac.foundation.fs :as fs]
+    [isaac.agent.tool.memory :as memory]))
 
 (def option-spec
   [["-h" "--help" "Show help"]

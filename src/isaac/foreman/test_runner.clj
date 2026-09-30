@@ -12,7 +12,7 @@
     [gherclj.parser :as parser]
     [isaac.foreman.core :as core]
     [isaac.foreman.machine :as machine]
-    [isaac.fs :as fs]))
+    [isaac.foundation.fs :as fs]))
 
 ;; ----- step text patterns -----
 

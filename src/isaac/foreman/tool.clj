@@ -1,9 +1,9 @@
 (ns isaac.foreman.tool
   (:require
     [isaac.foreman.core :as core]
-    [isaac.fs :as fs]
-    [isaac.session.store.spi :as session-store]
-    [isaac.tool.fs-bounds :as bounds]))
+    [isaac.foundation.fs :as fs]
+    [isaac.agent.session.store.spi :as session-store]
+    [isaac.agent.tool.fs-bounds :as bounds]))
 
 (defn signal-tool [args]
   (let [args (bounds/string-key-map args)

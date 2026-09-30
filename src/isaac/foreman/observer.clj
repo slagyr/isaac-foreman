@@ -2,7 +2,7 @@
   "Observer seam: registered observers see every handled transition.
    Unhandled events go to history, not observers."
   (:require
-    [isaac.logger :as log]))
+    [isaac.foundation.logger :as log]))
 
 (defonce ^:private registry* (atom {}))
 

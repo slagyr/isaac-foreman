@@ -3,8 +3,8 @@
     [clojure.string :as str]
     [gherclj.parser :as parser]
     [isaac.foreman.test-runner :as sut]
-    [isaac.fs :as fs]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (def lighthouse

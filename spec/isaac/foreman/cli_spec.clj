@@ -3,8 +3,8 @@
     [clojure.string :as str]
     [isaac.foreman.core :as core]
     [isaac.foreman.cli :as sut]
-    [isaac.fs :as fs]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (def lighthouse

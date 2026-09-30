@@ -5,7 +5,7 @@
   (:require
     [gherclj.core :as g :refer [helper!]]
     [isaac.foundation.cli-steps :as cli-steps]
-    [isaac.tool.memory :as memory]))
+    [isaac.agent.tool.memory :as memory]))
 
 (helper! isaac.foreman-steps)
 

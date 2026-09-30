@@ -3,8 +3,8 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.foreman.store :as sut]
-    [isaac.fs :as fs]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (describe "isaac.foreman.store"

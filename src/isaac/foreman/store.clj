@@ -5,7 +5,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.fs :as fs]))
+    [isaac.foundation.fs :as fs]))
 
 (defn- machine-dir [{:keys [root machine]}]
   (str root "/foreman/" (name machine)))

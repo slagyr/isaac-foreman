@@ -1,13 +1,13 @@
 (ns isaac.foreman.core-spec
   (:require
     [clojure.string :as str]
-    [isaac.config.loader :as loader]
+    [isaac.foundation.config.loader :as loader]
     [isaac.foreman.core :as sut]
-    [isaac.fs :as fs]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.nexus :as nexus]
     [isaac.foreman.store :as store]
-    [isaac.turn.submit :as submit]
-    [isaac.turn.worker :as worker]
+    [isaac.agent.turn.submit :as submit]
+    [isaac.agent.turn.worker :as worker]
     [speclj.core :refer :all]))
 
 (def lighthouse
