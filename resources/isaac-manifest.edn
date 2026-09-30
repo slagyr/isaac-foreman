@@ -1,6 +1,7 @@
 {:id       :isaac.foreman
  :version  "0.6.0"
  :builtin? true
+ :handbook "isaac/foreman/handbook.md"
  :factory  isaac.foreman.module/create-module
 
  :isaac.agent/tools
@@ -32,8 +33,10 @@
                                           :message {:type        :string
                                                     :description "Printed by :log actions"}
                                           :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
-                                          :resource-pools {:type :seq :spec {:type :string}}
-                                          :prompt {:type :string}}}}}}}
+                                          :resource-pools {:type :seq :spec {:type :string}
+                                                           :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
+                                          :prompt {:type :string
+                                                   :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the triggering event"}}}}}}}
 
   :machines
   {:entity-dir         "machines"
@@ -63,8 +66,10 @@
                                                         :message {:type        :string
                                                                   :description "Printed by :log actions"}
                                                         :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
-                                                        :resource-pools {:type :seq :spec {:type :string}}
-                                                        :prompt {:type :string}}}}
+                                                        :resource-pools {:type :seq :spec {:type :string}
+                                                                         :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
+                                                        :prompt {:type :string
+                                                                 :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the triggering event"}}}}
                    :states      {:type        :map
                                  :description "Optional per-state :entry / :exit action lists"
                                  :key-spec    {:type :keyword}
@@ -74,9 +79,12 @@
                    :transitions {:type        :seq
                                  :description "Rows {:start :event :end :actions}; :* matches any start"
                                  :spec        {:type   :map
-                                               :schema {:start   {:type :keyword :validations [:present?]}
-                                                        :event   {:type :keyword :validations [:present?]}
-                                                        :end     {:type :keyword :validations [:present?]}
+                                               :schema {:start   {:type :keyword :validations [:present?]
+                                                                  :description "Starting state this row matches, or :* to match any state (an explicit row wins over a wildcard row for the same event)"}
+                                                        :event   {:type :keyword :validations [:present?]
+                                                                  :description "Event keyword this row matches"}
+                                                        :end     {:type :keyword :validations [:present?]
+                                                                  :description "State the instance moves to when this row fires"}
                                                         :actions {:type        :seq
                                                                   :spec        {:type :keyword}
                                                                   :description "Vector of action names fired by this transition, in order"}}}}}}}}}
