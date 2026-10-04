@@ -44,7 +44,7 @@
   (cond-> {:name action-name :type (classify-action spec)}
     (= :turn (:type spec))
     (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
-           :data (:data envelope))))
+           :prompt (machine/fill-prompt (:prompt spec) machine id (:data envelope)))))
 
 (defn- submit-pending! [opts table shared entry]
   (let [spec (machine/resolve-action table (:name entry) shared)]
@@ -53,7 +53,7 @@
                       (merge (select-keys opts [:fs :root :machine :id])
                              {:frequencies (:frequencies spec)
                               :resource-pools (:resource-pools spec)
-                              :prompt (machine/fill-prompt (:prompt spec) (:machine opts) (:id opts) (:data entry))
+                              :prompt (:prompt entry)
                               :observers [[:foreman (name (:machine opts)) (name (:id opts))]]
                               :origin {:kind :foreman :machine (name (:machine opts))
                                        :instance (name (:id opts))}
@@ -102,7 +102,8 @@
                                         :machine machine
                                         :id      id
                                         :state   (:initial table)
-                                        :now     (now-iso now)})]
+                                        :now     (now-iso now)
+                                        :data    (:data opts)})]
       (println (str (name id) ": " (name (:state inst))))
       inst)))
 
@@ -134,9 +135,10 @@
             (binding [*out* *err*]
               (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")"))))
           inst)
-      (let [pending (apply-actions! table shared (:actions result) machine id envelope)
-            _ (store/record-transition! (assoc details :from (:state inst) :to (:state result)
-                                                :actions (:actions result)))
+      (let [updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
+                                                        :actions (:actions result)))
+            pending (apply-actions! table shared (:actions result) machine id
+                                    (assoc envelope :data (:data updated)))
             _ (when (seq pending) (store/set-pending! (assoc opts :pending pending)))]
         (observer/notify! {:observers (:observers table) :machine machine :id id
                            :from (:state inst) :to (:state result) :event event})
@@ -214,7 +216,7 @@
                             (str/join ", "))))
         hist    (keep history-line history)
         action-names (mapcat :actions (filter #(= :transition (:type %)) history))]
-    (->> (concat [header]
+    (->> (concat [header (str "data: " (pr-str (:data inst)))]
                  (when pending [pending])
                  (map name action-names)
                  hist)
@@ -230,6 +232,15 @@
     (let [hist (store/history {:fs fs :root root :machine machine :id id})]
       (println (format-status inst hist))
       inst)))
+
+(defn data!
+  "Read an instance's data or shallow-merge a map into it without a transition."
+  [{:keys [set] :as opts}]
+  (let [inst (if (some? set)
+               (store/set-data! opts set)
+               (or (store/get-instance opts)
+                   (throw (ex-info (str "unknown instance: " (name (:id opts))) {:id (:id opts)}))))]
+    (:data inst)))
 
 (defn format-list-row [inst]
   (str (name (:id inst)) "  " (name (:state inst))

@@ -84,7 +84,7 @@
                  (str (case field
                         "machine" (name machine)
                         "instance" (name id)
-                        (get data (keyword (subs field 5)) ""))))))
+                        (or (get-in data (mapv keyword (str/split (subs field 5) #"\."))) ""))))))
 
 (defn refusal-message
   "The message recorded (and thrown) when a signal has no matching transition."

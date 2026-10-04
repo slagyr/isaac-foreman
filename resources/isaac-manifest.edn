@@ -5,10 +5,12 @@
  :factory  isaac.foreman.module/create-module
 
  :isaac.agent/tools
- {:foreman/signal {:factory isaac.foreman.tool/foreman-signal-tool-factory}}
+ {:foreman/signal {:factory isaac.foreman.tool/foreman-signal-tool-factory}
+  :foreman/data {:factory isaac.foreman.tool/foreman-data-tool-factory}}
 
  :isaac.http/route
- [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler}]
+ [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler}
+  {:method :post :path "/foreman/instances/:machine/:id/data" :handler isaac.foreman.http/data-handler}]
 
  :isaac/cli
  {:foreman
@@ -36,7 +38,7 @@
                                           :resource-pools {:type :seq :spec {:type :string}
                                                            :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
                                           :prompt {:type :string
-                                                   :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the triggering event"}}}}}}}
+                                                   :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the merged instance data"}}}}}}}
 
   :machines
   {:entity-dir         "machines"
@@ -69,7 +71,7 @@
                                                         :resource-pools {:type :seq :spec {:type :string}
                                                                          :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
                                                         :prompt {:type :string
-                                                                 :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the triggering event"}}}}
+                                                                 :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the merged instance data"}}}}
                    :states      {:type        :map
                                  :description "Optional per-state :entry / :exit action lists"
                                  :key-spec    {:type :keyword}

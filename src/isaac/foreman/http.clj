@@ -35,3 +35,20 @@
                   {:error (ex-message e)}))
       (catch Exception e
         (response format 400 {:error (ex-message e)})))))
+
+(defn data-handler [request]
+  (let [format (format-of request)]
+    (try
+      (let [{:keys [machine id]} (:route-params request)
+            body (:body request)
+            text (if (string? body) body (slurp body))
+            payload (if (= :edn format) (edn/read-string text) (json/parse-string text true))
+            _ (when-not (map? payload) (throw (ex-info "data must be a map" {})))
+            data (core/data! {:root (loader/root) :fs (fs/instance)
+                              :machine machine :id id :set payload})]
+        (response format 200 data))
+      (catch clojure.lang.ExceptionInfo e
+        (response format (if (re-find #"unknown instance" (ex-message e)) 404 400)
+                  {:error (ex-message e)}))
+      (catch Exception e
+        (response format 400 {:error (ex-message e)})))))

@@ -30,7 +30,7 @@
       (let [edn-path (str @root "/foreman/lighthouse-watch/beacon-7.edn")
             ev-path  (str @root "/foreman/lighthouse-watch/beacon-7.events.ednl")]
         (should (fs/exists? @mem edn-path))
-        (should= {:state :dark :context {} :pending-actions [] :since "2026-03-01T18:00:00Z"}
+        (should= {:state :dark :data {} :pending-actions [] :since "2026-03-01T18:00:00Z"}
                  (dissoc (edn/read-string (fs/slurp @mem edn-path)) :id))
         (should (fs/exists? @mem ev-path)))))
 

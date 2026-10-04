@@ -1,5 +1,6 @@
 (ns isaac.foreman.tool
   (:require
+    [clojure.walk :as walk]
     [isaac.foreman.core :as core]
     [isaac.foundation.fs :as fs]
     [isaac.agent.session.store.spi :as session-store]
@@ -31,3 +32,22 @@
                              "id" {:type "string"}}
                 :required ["machine" "instance" "event"]}
    :handler #'signal-tool})
+
+(defn data-tool [args]
+  (let [args (bounds/string-key-map args)]
+    (try
+      {:result (pr-str (core/data! {:root (bounds/root args) :fs (bounds/filesystem args)
+                                    :machine (get args "machine") :id (get args "instance")
+                                    :set (some-> (get args "set")
+                                                 (walk/keywordize-keys))}))}
+      (catch Exception e
+        {:isError true :error (ex-message e)}))))
+
+(defn foreman-data-tool-factory [_]
+  {:builtin? true
+   :description "Read or merge data on an existing Foreman instance."
+   :parameters {:type "object"
+                :properties {"machine" {:type "string"} "instance" {:type "string"}
+                             "set" {:type "object"}}
+                :required ["machine" "instance"]}
+   :handler #'data-tool})

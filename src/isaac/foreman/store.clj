@@ -1,6 +1,6 @@
 (ns isaac.foreman.store
   "File-backed machine-instance store.
-   foreman/<machine>/<id>.edn holds {:state :context :pending-actions :since}
+   foreman/<machine>/<id>.edn holds {:state :data :pending-actions :since}
    and foreman/<machine>/<id>.events.ednl is the append-only history."
   (:require
     [clojure.edn :as edn]
@@ -42,13 +42,13 @@
   (assoc rec :id (name id)))
 
 (defn create-instance!
-  [{:keys [fs root machine id state now] :as opts}]
+  [{:keys [fs root machine id state now data] :as opts}]
   (let [edn-path (instance-edn-path opts)]
     (when (fs/exists? fs edn-path)
       (throw (ex-info (str "already exists: " (name id))
                       {:machine machine :id id})))
     (let [rec {:state            state
-               :context          {}
+               :data             (or data {})
                :pending-actions  []
                :since            now}]
       (write-edn! fs edn-path rec)
@@ -62,6 +62,19 @@
   (when-let [rec (read-edn fs (instance-edn-path opts))]
     (with-id (:id opts) rec)))
 
+(defn merge-data [current changes]
+  (reduce-kv (fn [acc key value]
+               (if (nil? value) (dissoc acc key) (assoc acc key value)))
+             (or current {}) (or changes {})))
+
+(defn set-data! [{:keys [fs] :as opts} changes]
+  (let [path (instance-edn-path opts)
+        rec  (or (read-edn fs path)
+                 (throw (ex-info (str "unknown instance: " (name (:id opts))) {:id (:id opts)})))
+        updated (update rec :data merge-data changes)]
+    (write-edn! fs path updated)
+    (with-id (:id opts) updated)))
+
 (defn record-transition!
   [{:keys [fs from to event actions now event-id source data crew session request-id] :as opts}]
   (let [edn-path (instance-edn-path opts)
@@ -69,7 +82,7 @@
         rec      (or (read-edn fs edn-path)
                      (throw (ex-info (str "unknown instance: " (name (:id opts)))
                                      {:id (:id opts)})))
-        updated  (assoc rec :state to :since now)]
+        updated  (assoc rec :state to :since now :data (merge-data (:data rec) data))]
     (append-event! fs ev-path (cond-> {:type    :transition
                                :from    from
                                :to      to

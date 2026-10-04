@@ -16,6 +16,7 @@
   [["-h" "--help" "Show help"]
    [nil  "--id ID" "Caller-supplied event id"]
    [nil  "--data EDN" "Event data as an EDN map"]
+   [nil  "--set EDN" "Merge instance data as an EDN map"]
    [nil  "--state STATE" "Filter list to instances currently in this state"]])
 
 (def ^:private help-text
@@ -27,13 +28,15 @@
              "Subcommands:"
              "  start  <machine> <id>   Birth an instance at the machine's :initial state"
              "  signal <machine> <id> <event>   Fire an event at an instance"
+             "  data   <machine> <id>   Read or set instance data"
              "  retry  <machine> <id>   Resubmit pending turn actions"
              "  status <machine> <id>   Show one instance (state, since, pending, history)"
              "  list   <machine>        Survey a machine's instances"
              "  test   <file.feature>…  Run Gherkin machine tests (Foreman-provided steps)"
              ""
              "Options:"
-             "  --data EDN     Signal event data as an EDN map"
+             "  --data EDN     Seed on start or supply signal event data"
+             "  --set EDN      Merge instance data"
              "  --state STATE  Filter list to the given current state"
              "  -h, --help     Show help"]))
 
@@ -61,20 +64,31 @@
   (print-err! (or (ex-message e) (.getMessage e)))
   1)
 
-(defn- run-start [opts machine id]
+(defn- parse-map [label text]
+  (when text
+    (let [value (walk/postwalk #(if (symbol? %) (str %) %) (edn/read-string text))]
+      (when-not (map? value)
+        (throw (ex-info (str label " must be an EDN map") {})))
+      value)))
+
+(defn- run-start [opts machine id data]
   (try
-    (core/start! (assoc (env opts) :machine machine :id id))
+    (core/start! (assoc (env opts) :machine machine :id id :data (parse-map "--data" data)))
     0
     (catch Exception e (fail e))))
 
 (defn- run-signal [opts machine id event event-id data]
   (try
-    (let [parsed (when data
-                   (walk/postwalk #(if (symbol? %) (str %) %) (edn/read-string data)))]
-      (when (and data (not (map? parsed)))
-        (throw (ex-info "--data must be an EDN map" {})))
+    (let [parsed (parse-map "--data" data)]
       (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event)
                            :event-id event-id :data parsed :source :cli)))
+    0
+    (catch Exception e (fail e))))
+
+(defn- run-data [opts machine id changes]
+  (try
+    (println (pr-str (core/data! (assoc (env opts) :machine machine :id id
+                                      :set (parse-map "--set" changes)))))
     0
     (catch Exception e (fail e))))
 
@@ -105,7 +119,8 @@
   (let [raw      (or (:_raw-args opts) [])
         sub      (first raw)
         rest-args (rest raw)
-        data-at  (.indexOf (vec rest-args) "--data")
+        data-at  (max (.indexOf (vec rest-args) "--data")
+                      (.indexOf (vec rest-args) "--set"))
         data-args (when (<= 0 data-at) (drop (inc data-at) rest-args))
         ;; Shells split an unquoted EDN map on whitespace. Keep its tokens together.
         rest-args (if (and (seq data-args) (str/starts-with? (first data-args) "{"))
@@ -123,13 +138,19 @@
       (let [[machine id] arguments]
         (if (or (str/blank? machine) (str/blank? id))
           (do (print-err! "Usage: isaac foreman start <machine> <id>") 1)
-          (run-start opts machine id)))
+          (run-start opts machine id (:data options))))
 
       (= "signal" sub)
       (let [[machine id event] arguments]
         (if (or (str/blank? machine) (str/blank? id) (str/blank? event))
           (do (print-err! "Usage: isaac foreman signal <machine> <id> <event>") 1)
           (run-signal opts machine id event (:id options) (:data options))))
+
+      (= "data" sub)
+      (let [[machine id] arguments]
+        (if (or (str/blank? machine) (str/blank? id))
+          (do (print-err! "Usage: isaac foreman data <machine> <id> [--set EDN]") 1)
+          (run-data opts machine id (:set options))))
 
       (= "retry" sub)
       (let [[machine id] arguments]
@@ -172,6 +193,7 @@
 (defmethod cli-api/subcommands :foreman [_id]
   [{:name "start" :summary "Birth an instance at the machine's :initial state"}
    {:name "signal" :summary "Fire an event at an instance"}
+   {:name "data" :summary "Read or merge instance data"}
    {:name "retry" :summary "Resubmit pending turn actions"}
    {:name "status" :summary "Show one instance (state, since, pending, history)"}
    {:name "list" :summary "Survey a machine's instances"}

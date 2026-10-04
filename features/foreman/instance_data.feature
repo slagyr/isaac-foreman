@@ -30,7 +30,6 @@ Feature: Foreman — instance data (isaac-7sfq)
                      {:start :tending :event :turn-ended :end :unlit}]}
       """
 
-  @wip
   Scenario: start seeds the data and a later turn renders it, nested keys included
     Given the following model responses are queued:
       | type | content    | model |
@@ -42,7 +41,6 @@ Feature: Foreman — instance data (isaac-7sfq)
       | type    | message.role | message.content                                 |
       | message | user         | Light the lamp at beacon-7 for Atticus; tide low. |
 
-  @wip
   Scenario: a handled event's data merges before its actions run; nil removes a key
     Given the following model responses are queued:
       | type | content    | model |
@@ -59,7 +57,6 @@ Feature: Foreman — instance data (isaac-7sfq)
     And the stdout does not contain "keeper"
     And the exit code is 0
 
-  @wip
   Scenario: a refused event leaves the data unchanged
     When isaac is run with "foreman start lighthouse-watch beacon-7 --data {:tide \"low\"}"
     And isaac is run with "foreman signal lighthouse-watch beacon-7 earthquake --data {:tide \"high\"}"
@@ -70,7 +67,6 @@ Feature: Foreman — instance data (isaac-7sfq)
       | :tide\s+"low"  |
     And the stdout does not contain "high"
 
-  @wip
   Scenario: foreman data --set merges without a transition, and status shows the data
     When isaac is run with "foreman start lighthouse-watch beacon-7 --data {:tide \"low\"}"
     And isaac is run with "foreman data lighthouse-watch beacon-7 --set {:tide \"high\" :keeper {:name \"Mabel\"}}"
@@ -85,7 +81,6 @@ Feature: Foreman — instance data (isaac-7sfq)
     Then the stderr contains "unknown instance"
     And the exit code is 1
 
-  @wip
   Scenario: POST /foreman/instances/<machine>/<id>/data merges data over HTTP
     When isaac is run with "foreman start lighthouse-watch beacon-7 --data {:tide \"low\"}"
     And a POST request is made to "/foreman/instances/lighthouse-watch/beacon-7/data":
@@ -106,7 +101,6 @@ Feature: Foreman — instance data (isaac-7sfq)
       | body                 | {"tide": "ebb"}  |
     Then the response status is 404
 
-  @wip
   Scenario: the foreman-data tool reads and merges an instance's data
     Given the crew "bartholomew" allows tools: "foreman/data"
     When isaac is run with "foreman start lighthouse-watch beacon-7 --data {:tide \"low\"}"

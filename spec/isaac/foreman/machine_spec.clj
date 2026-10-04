@@ -48,6 +48,10 @@
         (should= [:light-lamp] (:actions result))
         (should= :handled (:status result))))
 
+    (it "renders dotted data paths and missing values"
+      (should= "Atticus / " (sut/fill-prompt "{{data.keeper.name}} / {{data.absent}}"
+                                                  "watch" "beacon" {:keeper {:name "Atticus"}})))
+
     (it "returns unhandled without changing state when no row matches"
       (let [result (sut/step lighthouse :dark :earthquake)]
         (should= :dark (:state result))

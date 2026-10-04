@@ -47,6 +47,22 @@
       (should (str/includes? out "lamp lit"))
       (should (str/includes? out "beacon-7: dark -> lit (dusk)"))))
 
+  (it "seeds instance data and merges handled events without changing history"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-out-str (sut/start! (assoc opts :data {:keeper {:name "Atticus"} :tide "low"})))
+      (with-out-str (sut/signal! (assoc opts :event :dusk :data {:keeper nil :tide "high"})))
+      (should= {:tide "high"} (:data (store/get-instance opts)))
+      (should= {:keeper nil :tide "high"} (:data (last (store/history opts))))))
+
+  (it "reads and merges data without a transition, rejecting unknown instances"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-out-str (sut/start! (assoc opts :data {:tide "low" :keeper "Ada"})))
+      (should= {:tide "high"} (sut/data! (assoc opts :set {:tide "high" :keeper nil})))
+      (should= {:tide "high"} (sut/data! opts))
+      (should= [] (store/history opts))
+      (should-throw Exception #"unknown instance"
+        (sut/data! (assoc opts :id "ghost-9" :set {:tide "high"})))))
+
   (it "a deliberate signal with no transition is refused; the instance stays put"
     (sut/start! {:fs @mem :root @root :machine "lighthouse-watch"
                  :id "beacon-7" :now @now})
@@ -55,6 +71,13 @@
         (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
                       :id "beacon-7" :event :earthquake :now @now})))
     (should= :dark (:state (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))
+
+  (it "does not merge data on a refused event"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-out-str (sut/start! (assoc opts :data {:tide "low"})))
+      (should-throw Exception #"no transition"
+        (with-out-str (sut/signal! (assoc opts :event :earthquake :data {:tide "high"}))))
+      (should= {:tide "low"} (sut/data! opts))))
 
   (it "an observation with no transition stays quiet; the instance stays put"
     (sut/start! {:fs @mem :root @root :machine "lighthouse-watch"
@@ -133,6 +156,28 @@
                (:origin @request))
       (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
                              "tend-lamp (turn) submitted turn-17"))))
+
+  (it "retries the originally enqueued prompt even if data changes"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          prompts (atom [])]
+      (sut/data! (assoc opts :set {:tide "low"}))
+      (with-redefs [submit/submit! (fn [req]
+                                     (swap! prompts conj (:prompt req))
+                                     (throw (ex-info "offline" {})))]
+        (with-out-str (sut/signal! (assoc opts :event :dusk :data {:tide "high"}))))
+      (sut/data! (assoc opts :set {:tide "ebb"}))
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}}
+                        :machines {"lighthouse-watch" (assoc-in @table [:actions :tend-lamp :prompt]
+                                                                  "Changed template: {{data.tide}}")}}))
+      (with-redefs [submit/submit! (fn [req]
+                                     (swap! prompts conj (:prompt req))
+                                     {:id "turn-18"})]
+        (with-out-str (sut/retry! opts)))
+      (should= ["Light beacon-7 at lighthouse-watch: high"
+                "Light beacon-7 at lighthouse-watch: high"] @prompts)))
 
   (it "keeps a submitted action after a turn signals during the wake"
     (let [table (assoc @table :transitions (conj (:transitions @table)
