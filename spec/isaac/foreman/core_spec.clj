@@ -2,6 +2,7 @@
   (:require
     [clojure.string :as str]
     [isaac.foundation.config.loader :as loader]
+    [isaac.foundation.module.discovery :as discovery]
     [isaac.foreman.core :as sut]
     [isaac.foundation.fs :as fs]
     [isaac.foundation.nexus :as nexus]
@@ -237,6 +238,42 @@
     (should= ["beacon-7" "beacon-9"]
              (mapv :id (sut/list-instances {:fs @mem :root "/isaac-state"
                                              :machine "lighthouse-watch" :state :lit})))))
+
+(describe "Foreman contributed actions"
+  (with mem (fs/mem-fs))
+  (with opts {:fs @mem :root "/isaac-state" :machine "lighthouse-watch" :id "beacon-7"})
+  (around [example]
+    (nexus/-with-nested-nexus {:fs @mem}
+      (fs/mkdirs @mem "/isaac-state/config")
+      (example)))
+
+  (it "stops after a failed contributed action and signals its failure under :failed"
+    (let [builtin-index discovery/builtin-index
+          table {:initial :dark
+                 :actions {:ring-bell {:type :chime :times 3}
+                           :after {:type :log :message "should not ring"}}
+                 :transitions [{:start :dark :event :dusk :end :lit :actions [:ring-bell :after]}
+                               {:start :lit :event :ring-bell-failed :end :silent}]}
+          calls (atom [])]
+      (fs/spit @mem "/isaac-state/config/isaac.edn"
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-redefs [discovery/builtin-index (fn [] (assoc (builtin-index) :marigold.chime
+                                                        {:manifest {:id :marigold.chime
+                                                                    :isaac.foreman/action {:chime {:handler 'isaac.foreman.action/log!
+                                                                                                   :action-spec {:times {:type :int}}}}}}))
+                    isaac.foreman.action/run! (fn [type ctx _]
+                                                 (swap! calls conj type)
+                                                 (when (= type :chime)
+                                                   {:failed {:action (:action ctx) :reason :broken}}))]
+        (with-out-str (sut/start! @opts))
+        (with-out-str (sut/signal! (assoc @opts :event :dusk))))
+      (should= [:chime] @calls)
+      (should= :silent (:state (store/get-instance @opts)))
+      (should= {:action :ring-bell :reason :broken}
+               (get-in (store/get-instance @opts) [:data :failed]))))
+  )
 
 (describe "Foreman exec actions"
   (with mem (fs/mem-fs))

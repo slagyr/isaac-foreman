@@ -15,7 +15,6 @@ Feature: Foreman — contributed action types (isaac-np1m)
     Given an Isaac root at "target/test-state"
     And default Grover setup
 
-  @wip
   Scenario: a module-contributed action runs on a transition and writes the data
     Given the "chime" action module is registered
     And the isaac file "config/machines/lighthouse-watch.edn" exists with:

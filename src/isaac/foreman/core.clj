@@ -3,7 +3,7 @@
   (:require
     [clojure.string :as str]
     [isaac.foundation.config.loader :as loader]
-    [isaac.foreman.exec :as exec]
+    [isaac.foreman.action :as action]
     [isaac.foreman.machine :as machine]
     [isaac.foreman.observer :as observer]
     [isaac.foreman.store :as store]
@@ -36,10 +36,6 @@
 
 (defn- classify-action [spec]
   (or (:type spec) :unknown))
-
-(defn- execute-log! [spec]
-  (when-let [msg (:message spec)]
-    (println msg)))
 
 (defn- pending-entry [action-name spec machine id envelope]
   (cond-> {:name action-name :type (classify-action spec)}
@@ -114,19 +110,17 @@
     (if-not action-name
       {:pending pending}
       (let [spec (machine/resolve-action table action-name shared)
-            type (classify-action spec)]
-        (case type
-          :log (do (execute-log! spec) (recur remaining pending))
-          :exec (let [{:keys [output failure]} (exec/run! action-name spec (:machine opts) (:id opts)
-                                                       (:data (store/get-instance opts)))]
-                  (if failure
-                    {:pending pending :failure failure}
-                    (do (if-let [into (:into spec)]
-                          (store/set-data! opts {into output})
-                          (println (str (name action-name) " (exec): " (pr-str output))))
-                        (recur remaining pending))))
-          (recur remaining (conj pending (pending-entry action-name spec (:machine opts) (:id opts)
-                                                        (assoc envelope :data (:data (store/get-instance opts)))))))))))
+            type (classify-action spec)
+            ctx {:machine (:machine opts) :instance (:id opts)
+                 :data (:data (store/get-instance opts)) :event (:event envelope)
+                 :action action-name}
+            {:keys [data failed pending?]} (action/run! type ctx spec)]
+        (when data (store/set-data! opts data))
+        (cond
+          failed {:pending pending :failure failed}
+          pending? (recur remaining (conj pending (pending-entry action-name spec (:machine opts) (:id opts)
+                                                                (assoc envelope :data (:data (store/get-instance opts))))))
+          :else (recur remaining pending))))))
 
 (declare signal!)
 
@@ -151,7 +145,7 @@
             _ (when (seq pending) (store/set-pending! (assoc opts :pending pending)))]
         (when failure
           (signal! (assoc opts :event (keyword (str (name (:action failure)) "-failed"))
-                               :data {:exec failure} :source :observer)))
+                               :data (if (:exit failure) {:exec failure} {:failed failure}) :source :observer)))
         (observer/notify! {:observers (:observers table) :machine machine :id id
                            :from (:state inst) :to (:state result) :event event})
         (println (format-transition id (:state inst) (:state result) event))

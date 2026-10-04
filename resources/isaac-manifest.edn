@@ -18,6 +18,20 @@
    :summary   "Drive and inspect machine instances"
    :namespace isaac.foreman.cli}}
 
+ :berths {:isaac.foreman/action
+          {:description "Foreman action implementations keyed by action type"
+           :schema {:type :map :key-spec {:type :keyword}
+                    :value-spec {:type :map
+                                 :factory isaac.foreman.action/register!
+                                 :schema {:handler {:type :symbol :validations [:present?]}
+                                          :action-spec {:type :schema-map}}}}}}
+
+ :isaac.foreman/action
+ {:log {:handler isaac.foreman.action/log!}
+  :turn {:handler isaac.foreman.action/turn!}
+  :notify {:handler isaac.foreman.action/notify!}
+  :exec {:handler isaac.foreman.action/exec!}}
+
  :isaac.config/schema
  {:foreman
   {:schema
@@ -29,9 +43,10 @@
                    :description "Named actions shared across machines"
                    :key-spec    {:type :keyword}
                    :value-spec  {:type   :map
+                                 :dynamic-schema {:berth :isaac.foreman/action :path [:action-spec]}
                                  :schema {:type    {:type        :keyword
                                                     :description "Built-in action type (:log, :turn, :notify)"
-                                                    :validations [[:one-of? :log :turn :notify :exec]]}
+                                                    :validations [[:registered-in? :isaac.foreman/action]]}
                                           :message {:type        :string
                                                     :description "Printed by :log actions"}
                                           :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
@@ -66,9 +81,10 @@
                                  :description "Named actions local to this machine"
                                  :key-spec    {:type :keyword}
                                  :value-spec  {:type   :map
+                                               :dynamic-schema {:berth :isaac.foreman/action :path [:action-spec]}
                                                :schema {:type    {:type        :keyword
                                                                   :description "Built-in action type"
-                                                                  :validations [[:one-of? :log :turn :notify :exec]]}
+                                                                  :validations [[:registered-in? :isaac.foreman/action]]}
                                                         :message {:type        :string
                                                                   :description "Printed by :log actions"}
                                                         :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
