@@ -237,3 +237,72 @@
     (should= ["beacon-7" "beacon-9"]
              (mapv :id (sut/list-instances {:fs @mem :root "/isaac-state"
                                              :machine "lighthouse-watch" :state :lit})))))
+
+(describe "Foreman exec actions"
+  (with mem (fs/mem-fs))
+  (with root "/isaac-state")
+  (with opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"})
+  (around [example]
+    (nexus/-with-nested-nexus {:fs @mem}
+      (fs/mkdirs @mem (str @root "/config"))
+      (example)))
+
+  (it "loads JSON before rendering a subsequent turn"
+    (let [table {:initial :dark
+                 :actions {:load-log {:type :exec :command ["printf" "{\"title\":\"Fix the lamp\"}"] :into :log}
+                           :tend-lamp {:type :turn :frequencies {:session "lamp-room"}
+                                       :prompt "Work {{data.log.title}}"}}
+                 :transitions [{:start :dark :event :dusk :end :lit :actions [:load-log :tend-lamp]}]}
+          request (atom nil)]
+      (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                              :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                              :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/start! @opts))
+      (with-redefs [submit/submit! (fn [req] (reset! request req) {:id "turn-17"})
+                    worker/tick! (fn [])]
+        (with-out-str (sut/signal! (assoc @opts :event :dusk))))
+      (should= {:title "Fix the lamp"} (get-in (store/get-instance @opts) [:data :log]))
+      (should= "Work Fix the lamp" (:prompt @request))))
+
+  (it "templates the argv and cwd, retaining unstructured stdout as text"
+    (let [table {:initial :dark
+                 :actions {:echo {:type :exec :command ["printf" "%s tide" "{{data.tide}}"] :into :heard}
+                           :where {:type :exec :command ["pwd"] :cwd "{{data.dir}}" :into :cwd}}
+                 :transitions [{:start :dark :event :dusk :end :lit :actions [:echo :where]}]}]
+      (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                              :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                              :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/start! (assoc @opts :data {:tide "high" :dir "/"})))
+      (with-out-str (sut/signal! (assoc @opts :event :dusk)))
+      (should= "high tide" (get-in (store/get-instance @opts) [:data :heard]))
+      (should= "/" (get-in (store/get-instance @opts) [:data :cwd]))))
+
+  (it "stops the list on nonzero exit and signals failure with metadata"
+    (let [table {:initial :dark
+                 :actions {:load-log {:type :exec :command ["sh" "-c" "echo log is missing >&2; exit 3"] :into :log}
+                           :later {:type :exec :command ["printf" "unexpected"] :into :later}}
+                 :transitions [{:start :dark :event :dusk :end :tending :actions [:load-log :later]}
+                               {:start :tending :event :load-log-failed :end :stranded}]}]
+      (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                              :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                              :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/start! @opts))
+      (with-out-str (sut/signal! (assoc @opts :event :dusk)))
+      (should= :stranded (:state (store/get-instance @opts)))
+      (should= nil (get-in (store/get-instance @opts) [:data :later]))
+      (should= {:action :load-log :exit 3 :stderr "log is missing" :timeout false}
+               (get-in (store/get-instance @opts) [:data :exec]))))
+
+  (it "kills a command on timeout and signals failure"
+    (let [table {:initial :dark
+                 :actions {:wait-tide {:type :exec :command ["sleep" "5"] :timeout 1 :into :tide}}
+                 :transitions [{:start :dark :event :dusk :end :waiting :actions [:wait-tide]}
+                               {:start :waiting :event :wait-tide-failed :end :stranded}]}]
+      (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                              :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                              :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/start! @opts))
+      (with-out-str (sut/signal! (assoc @opts :event :dusk)))
+      (should= :stranded (:state (store/get-instance @opts)))
+      (should= true (get-in (store/get-instance @opts) [:data :exec :timeout]))))
+  )

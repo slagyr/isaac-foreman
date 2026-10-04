@@ -31,12 +31,16 @@
                    :value-spec  {:type   :map
                                  :schema {:type    {:type        :keyword
                                                     :description "Built-in action type (:log, :turn, :notify)"
-                                                    :validations [[:one-of? :log :turn :notify]]}
+                                                    :validations [[:one-of? :log :turn :notify :exec]]}
                                           :message {:type        :string
                                                     :description "Printed by :log actions"}
                                           :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
                                           :resource-pools {:type :seq :spec {:type :string}
                                                            :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
+                                          :command {:type :seq :spec {:type :string} :description "Argv for :exec (no implicit shell)"}
+                                          :into {:type :keyword :description "Instance data key for :exec stdout"}
+                                          :cwd {:type :string :description "Templated working directory for :exec"}
+                                          :timeout {:type :int :description "Seconds before :exec is killed (default 60)"}
                                           :prompt {:type :string
                                                    :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the merged instance data"}}}}}}}
 
@@ -64,13 +68,17 @@
                                  :value-spec  {:type   :map
                                                :schema {:type    {:type        :keyword
                                                                   :description "Built-in action type"
-                                                                  :validations [[:one-of? :log :turn :notify]]}
+                                                                  :validations [[:one-of? :log :turn :notify :exec]]}
                                                         :message {:type        :string
                                                                   :description "Printed by :log actions"}
                                                         :frequencies {:type :map :key-spec {:type :keyword} :value-spec {:type :any} :description "Agent session frequencies"}
                                                         :resource-pools {:type :seq :spec {:type :string}
                                                                          :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
-                                                        :prompt {:type :string
+                                                        :command {:type :seq :spec {:type :string} :description "Argv for :exec (no implicit shell)"}
+                                          :into {:type :keyword :description "Instance data key for :exec stdout"}
+                                          :cwd {:type :string :description "Templated working directory for :exec"}
+                                          :timeout {:type :int :description "Seconds before :exec is killed (default 60)"}
+                                          :prompt {:type :string
                                                                  :description "Prompt template for a :turn action, filled with {{machine}}, {{instance}}, and {{data.<key>}} from the merged instance data"}}}}
                    :states      {:type        :map
                                  :description "Optional per-state :entry / :exit action lists"

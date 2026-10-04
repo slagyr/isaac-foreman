@@ -3,6 +3,7 @@
   (:require
     [clojure.string :as str]
     [isaac.foundation.config.loader :as loader]
+    [isaac.foreman.exec :as exec]
     [isaac.foreman.machine :as machine]
     [isaac.foreman.observer :as observer]
     [isaac.foreman.store :as store]
@@ -107,18 +108,27 @@
       (println (str (name id) ": " (name (:state inst))))
       inst)))
 
-(defn- apply-actions! [machine shared action-names machine-name id envelope]
-  (let [resolved (mapv (fn [n]
-                         (let [spec (machine/resolve-action machine n shared)]
-                           {:name n :spec spec :type (classify-action spec)}))
-                       action-names)
-        pending  (->> resolved
-                      (remove #(= :log (:type %)))
-                      (mapv #(pending-entry (:name %) (:spec %) machine-name id envelope)))]
-    (doseq [{:keys [type spec]} resolved]
-      (when (= :log type)
-        (execute-log! spec)))
-    pending))
+(defn- apply-actions! [opts table shared action-names envelope]
+  (loop [[action-name & remaining] action-names
+         pending []]
+    (if-not action-name
+      {:pending pending}
+      (let [spec (machine/resolve-action table action-name shared)
+            type (classify-action spec)]
+        (case type
+          :log (do (execute-log! spec) (recur remaining pending))
+          :exec (let [{:keys [output failure]} (exec/run! action-name spec (:machine opts) (:id opts)
+                                                       (:data (store/get-instance opts)))]
+                  (if failure
+                    {:pending pending :failure failure}
+                    (do (if-let [into (:into spec)]
+                          (store/set-data! opts {into output})
+                          (println (str (name action-name) " (exec): " (pr-str output))))
+                        (recur remaining pending))))
+          (recur remaining (conj pending (pending-entry action-name spec (:machine opts) (:id opts)
+                                                        (assoc envelope :data (:data (store/get-instance opts)))))))))))
+
+(declare signal!)
 
 (defn- consume! [opts table shared envelope]
   (let [{:keys [fs root machine id]} opts
@@ -137,9 +147,11 @@
           inst)
       (let [updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
                                                         :actions (:actions result)))
-            pending (apply-actions! table shared (:actions result) machine id
-                                    (assoc envelope :data (:data updated)))
+            {:keys [pending failure]} (apply-actions! opts table shared (:actions result) envelope)
             _ (when (seq pending) (store/set-pending! (assoc opts :pending pending)))]
+        (when failure
+          (signal! (assoc opts :event (keyword (str (name (:action failure)) "-failed"))
+                               :data {:exec failure} :source :observer)))
         (observer/notify! {:observers (:observers table) :machine machine :id id
                            :from (:state inst) :to (:state result) :event event})
         (println (format-transition id (:state inst) (:state result) event))
