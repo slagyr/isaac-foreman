@@ -160,6 +160,27 @@
       (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
                              "tend-lamp (turn) submitted turn-17"))))
 
+  (it "renders a turn's target at enqueue and preserves it on retry"
+    (let [request (atom nil)
+          opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          templated (assoc-in @table [:actions :tend-lamp :frequencies]
+                              {:crew "{{machine}}" :session ["lamp-{{instance}}" "{{data.keeper.name}}" "{{data.absent}}"]
+                               :tags ["watch-{{instance}}"] :create :if-missing})]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" templated}}))
+      (with-redefs [submit/submit! (fn [req] (reset! request req) (throw (ex-info "unavailable" {})))]
+        (with-out-str (sut/signal! (assoc opts :event :dusk :event-id "tide-1" :data {:keeper {:name "Atticus"}}))))
+      (should= {:crew "lighthouse-watch" :session ["lamp-beacon-7" "Atticus" ""]
+                :tags ["watch-beacon-7"] :create :if-missing}
+               (:frequencies @request))
+      (with-redefs [submit/submit! (fn [req] (reset! request req) {:id "turn-17"})]
+        (with-out-str (sut/retry! opts)))
+      (should= {:crew "lighthouse-watch" :session ["lamp-beacon-7" "Atticus" ""]
+                :tags ["watch-beacon-7"] :create :if-missing}
+               (:frequencies @request))))
+
   (it "keeps the entered state when retrying after a later transition"
     (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
           preambles (atom [])

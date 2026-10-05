@@ -42,6 +42,7 @@
   (cond-> {:name action-name :type (classify-action spec)}
     (= :turn (:type spec))
     (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
+           :frequencies (machine/fill-frequencies (:frequencies spec) machine id (:data envelope))
            :prompt (machine/fill-prompt (:prompt spec) machine id (:data envelope))
            :valid-events valid-events
            :state state)))
@@ -51,7 +52,7 @@
     (try
       (let [request (turn-submit/submit!
                       (merge (select-keys opts [:fs :root :machine])
-                             {:frequencies (:frequencies spec)
+                             {:frequencies (:frequencies entry)
                               :resource-pools (:resource-pools spec)
                               :prompt (:prompt entry)
                               :preamble (str "This turn is part of Foreman machine " (name (:machine opts))

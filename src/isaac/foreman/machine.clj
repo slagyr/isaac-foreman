@@ -101,6 +101,18 @@
                         "instance" (name id)
                         (or (get-in data (mapv keyword (str/split (subs field 5) #"\."))) ""))))))
 
+(defn fill-frequencies
+  "Render string values in a turn's target, including vector members. Preserve
+   non-string selection directives unchanged."
+  [frequencies machine id data]
+  (let [fill (fn [value]
+               (cond
+                 (string? value) (fill-prompt value machine id data)
+                 (vector? value) (mapv (fn [item]
+                                         (if (string? item) (fill-prompt item machine id data) item)) value)
+                 :else value))]
+    (update-vals frequencies fill)))
+
 (defn refusal-message
   "The message recorded (and thrown) when a signal has no matching transition."
   [event state]

@@ -167,6 +167,20 @@
                                      {:scenario "s" :steps [(when-step "\"dusk\" is signaled") step]})]
         (should (:pass? result))))
 
+    (it "checks a rendered session for the chosen instance"
+      (let [table {:initial :dark
+                   :actions {:tend-lamp {:type :turn :frequencies {:crew "{{machine}}"
+                                                                     :session ["lamp-{{instance}}" "{{data.absent}}"]
+                                                                     :create :if-missing} :prompt "..."}}
+                   :transitions [{:start :dark :event :dusk :end :tending :actions [:tend-lamp]}]}
+            step {:type :then :text "the \"tend-lamp\" target is:"
+                  :table {:headers ["crew" "lighthouse-watch"]
+                          :rows [["session" "[\"lamp-beacon-7\" \"\"]"] ["create" ":if-missing"]]}}
+            result (sut/run-scenario {:machines {"lighthouse-watch" table}}
+                                     [(given "the \"lighthouse-watch\" machine") (given "instance \"beacon-7\"")]
+                                     {:scenario "s" :steps [(when-step "\"dusk\" is signaled") step]})]
+        (should (:pass? result))))
+
     (it "fails with the expected and actual maps on a mismatch"
       (let [table  {:initial :dark
                     :actions {:tend-lamp {:type :turn :frequencies {:crew "bartholomew"} :prompt "..."}}

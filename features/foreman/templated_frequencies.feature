@@ -19,7 +19,6 @@ Feature: Foreman — templated frequencies (isaac-8r7m)
        :transitions [{:start :dark :event :dusk :end :tending :actions [:tend-lamp]}]}
       """
 
-  @wip
   Scenario: each instance's turn runs in its own templated session
     Given the following model responses are queued:
       | type | content        | model |
@@ -36,7 +35,6 @@ Feature: Foreman — templated frequencies (isaac-8r7m)
       | type    | message.role | message.content             |
       | message | user         | Tend the lamp at beacon-9.  |
 
-  @wip
   Scenario: a machine test sees the rendered target
     Given a file "machine-tests/lighthouse.feature" exists with content:
       """

@@ -67,7 +67,7 @@
 
 (defn- actual-target [ctx action-name]
   (let [spec (machine/resolve-action (:table ctx) action-name (:shared ctx))]
-    (cond-> (or (:frequencies spec) {})
+    (cond-> (machine/fill-frequencies (or (:frequencies spec) {}) (:machine ctx) (:id ctx) {})
       (:resource-pools spec) (assoc :resource-pools (:resource-pools spec)))))
 
 ;; ----- scenario context -----

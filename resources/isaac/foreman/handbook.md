@@ -84,9 +84,9 @@ its own action of the same name. Three types are declared in the schema:
   Fields: `config:foreman.actions["tend-lamp"].message`.
 - **`:turn`** — submits one turn to `isaac.agent` when the transition
   fires. Fields: `config:foreman.actions["tend-lamp"].frequencies` (an
-  `isaac.agent#frequencies` map — crew/session/tags/prefer/create, passed
-  through **untouched**: Foreman never itself picks a session or a
-  directory), `config:foreman.actions["tend-lamp"].resource-pools` (pool
+  `isaac.agent#frequencies` map — crew/session/tags/prefer/create; string
+  values are templated before submission: Foreman never itself picks a
+  session or a directory), `config:foreman.actions["tend-lamp"].resource-pools` (pool
   ids the turn must lease before it runs — same admission mechanism as any
   other turn, see `isaac.agent`), and
   `config:foreman.actions["tend-lamp"].prompt` (a template filled at
@@ -115,7 +115,13 @@ instance id), and `{{data.<key>}}` (a key from the triggering event's
 `:data` map — see Signaling an instance) — a referenced `data` key that's
 absent fills as empty, not an error. This is plain string substitution,
 not a soul or a full prompt-templating system; write the rest of the
-prompt as literal text around the placeholders.
+prompt as literal text around the placeholders. String values in a `:turn`
+action's `:frequencies`, including strings inside vectors such as `:session`
+and `:tags`, use the same placeholders. Keywords and other non-string values
+pass through unchanged. The rendered target is saved with the pending action
+so retries use the original event's data rather than a later event's data.
+For a session per instance, use `:frequencies {:session "bean-{{instance}}"
+:create :if-missing}`.
 
 ### Resolution order
 
@@ -128,9 +134,10 @@ only to shadow it entirely.
 ### Troubleshooting
 
 - **A `:turn` action's turn goes to the wrong session, or none at all.**
-  Foreman passes `:frequencies` straight to `isaac.agent`'s matching
-  untouched — troubleshoot it as an ordinary frequencies problem (see
-  `isaac.agent#frequencies`), not a Foreman-specific one.
+  Foreman renders string placeholders in `:frequencies` at enqueue, then
+  passes the target to `isaac.agent`'s matching. Check the rendered session
+  using a machine test's `target is:` assertion, then troubleshoot remaining
+  selection issues using `isaac.agent#frequencies`.
 - **An action seems to silently do nothing.** If its `:type` is
   `:notify`, that's the current, unimplemented gap above — not a bug in
   your config. Use `:log` or `:turn` for anything you need to actually
@@ -292,7 +299,7 @@ Steps (exact/substring/regex, by the step's own wording):
 | `Then the actions contain "<a>"` | Membership only |
 | `Then there are no actions` | Empty action list |
 | `Then the "<action>" prompt is / contains / matches "<text>"` | The filled prompt template |
-| `Then the "<action>" target is:` (key/value table) | The action's `frequencies` (plus `resource-pools` if set) |
+| `Then the "<action>" target is:` (key/value table) | The action's rendered `frequencies` (plus `resource-pools` if set) |
 
 One line prints per scenario — `PASS <name>` or `FAIL <name> — <step>:
 <mismatch>` — and the command exits non-zero if any scenario failed.
