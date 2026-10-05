@@ -93,7 +93,11 @@ its own action of the same name. Three types are declared in the schema:
   submission time — see Prompt templates, below). With `:output {:data :key}`
   the reply is stored in the instance data as `:key` before the turn outcome
   is applied; Foreman writes a preamble instructing the model to reply with
-  only that content.
+  only that content. Every submitted turn's preamble first names the Foreman
+  machine, instance, and state just entered, whether or not `:output` is set.
+  The instance id is the bean id for bean-work machines; use `foreman__data`
+  to pull instance data when that tool is available. `:output :event` adds
+  the valid event reply lines after the identity line.
 - **`:exec`** — runs a declared argv command. With `:output {:data :key}`
   its stdout is stored as instance data before the next action executes.
 - **`:notify`** — declared as a valid `:type` in the schema, but **nothing

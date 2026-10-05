@@ -150,6 +150,8 @@
                                     :event :dusk :event-id "tide-1" :data {:tide "high"}})))
       (should= "lighthouse-watch/beacon-7/tide-1/tend-lamp" (:key @request))
       (should= "Light beacon-7 at lighthouse-watch: high" (:prompt @request))
+      (should= "This turn is part of Foreman machine lighthouse-watch, instance beacon-7 (state tending)."
+               (:preamble @request))
       (should= {:session "lamp-room"} (:frequencies @request))
       (should= ["dock"] (:resource-pools @request))
       (should= [[:foreman "lighthouse-watch" "beacon-7"]] (:observers @request))
@@ -157,6 +159,25 @@
                (:origin @request))
       (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
                              "tend-lamp (turn) submitted turn-17"))))
+
+  (it "keeps the entered state when retrying after a later transition"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          preambles (atom [])
+          table (update @table :transitions conj {:start :tending :event :pause :end :waiting})]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-redefs [submit/submit! (fn [req]
+                                     (swap! preambles conj (:preamble req))
+                                     (throw (ex-info "offline" {})))]
+        (with-out-str (sut/signal! (assoc opts :event :dusk))))
+      (with-out-str (sut/signal! (assoc opts :event :pause)))
+      (with-redefs [submit/submit! (fn [req] (swap! preambles conj (:preamble req)) {:id "turn-18"})]
+        (with-out-str (sut/retry! opts)))
+      (should= ["This turn is part of Foreman machine lighthouse-watch, instance beacon-7 (state tending)."
+                "This turn is part of Foreman machine lighthouse-watch, instance beacon-7 (state tending)."]
+               @preambles)))
 
   (it "retries the originally enqueued prompt even if data changes"
     (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}

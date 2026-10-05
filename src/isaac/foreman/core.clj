@@ -38,12 +38,13 @@
 (defn- classify-action [spec]
   (or (:type spec) :unknown))
 
-(defn- pending-entry [action-name spec machine id envelope valid-events]
+(defn- pending-entry [action-name spec machine id envelope state valid-events]
   (cond-> {:name action-name :type (classify-action spec)}
     (= :turn (:type spec))
     (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
            :prompt (machine/fill-prompt (:prompt spec) machine id (:data envelope))
-           :valid-events valid-events)))
+           :valid-events valid-events
+           :state state)))
 
 (defn- submit-pending! [opts table shared entry]
   (let [spec (machine/resolve-action table (:name entry) shared)]
@@ -53,15 +54,15 @@
                              {:frequencies (:frequencies spec)
                               :resource-pools (:resource-pools spec)
                               :prompt (:prompt entry)
-                              :preamble (cond
-                                          (= :event (:output spec))
-                                          (str "This turn is part of machine " (name (:machine opts))
-                                               ", instance " (name (:id opts)) ". End your reply with one line "
-                                               "event: <name> (optional short reason). Valid events: "
-                                               (str/join ", " (map #(str "event: " (name %)) (:valid-events entry))) ".")
-                                          (get-in spec [:output :data])
-                                          (str "Your reply will be stored as the instance's "
-                                               (name (get-in spec [:output :data])) ". Reply with only that content."))
+                              :preamble (str "This turn is part of Foreman machine " (name (:machine opts))
+                                             ", instance " (name (:id opts)) " (state " (name (or (:state entry) (:state (store/get-instance opts)))) ")."
+                                             (cond
+                                               (= :event (:output spec))
+                                               (str "\nEnd your reply with one line event: <name> (optional short reason). Valid events: "
+                                                    (str/join ", " (map #(str "event: " (name %)) (:valid-events entry))) ".")
+                                               (get-in spec [:output :data])
+                                               (str "\nYour reply will be stored as the instance's "
+                                                    (name (get-in spec [:output :data])) ". Reply with only that content.")))
                               :observers [(cond-> [:foreman (name (:machine opts)) (name (:id opts))]
                                             (= :event (:output spec))
                                             (conj {:mode :event :valid-events (:valid-events entry) :action (:name entry)})
@@ -135,6 +136,7 @@
           failed {:pending pending :replies replies :failure failed}
           pending? (recur remaining (conj pending (pending-entry action-name spec (:machine opts) (:id opts)
                                                                 (assoc envelope :data (:data (store/get-instance opts)))
+                                                                (:state (store/get-instance opts))
                                                                 (machine/reply-events table (:state (store/get-instance opts))))) replies)
           :else (recur remaining pending (cond-> replies reply (conj {:reply reply :action action-name}))))))))
 

@@ -16,7 +16,6 @@ Feature: Foreman — every turn knows its machine (isaac-ut5n)
       | name      | crew        |
       | lamp-room | bartholomew |
 
-  @wip
   Scenario: a turn with no output mode names its machine, instance and state
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -33,7 +32,6 @@ Feature: Foreman — every turn knows its machine (isaac-ut5n)
       | key      | value                                                                                         |
       | messages | #"(?s)This turn is part of Foreman machine lighthouse-watch, instance beacon-7 \(state tending\)\." |
 
-  @wip
   Scenario: a turn whose output is stored names them and says where its reply goes
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -50,7 +48,6 @@ Feature: Foreman — every turn knows its machine (isaac-ut5n)
       | key      | value                                                                                                                  |
       | messages | #"(?s)This turn is part of Foreman machine lighthouse-watch, instance beacon-7 \(state reading\)\..*stored as the instance's summary" |
 
-  @wip
   Scenario: a turn whose reply is its event names them and lists the events
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
