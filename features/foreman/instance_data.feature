@@ -27,7 +27,7 @@ Feature: Foreman — instance data (isaac-7sfq)
                              :prompt      "Light the lamp at {{instance}} for {{data.keeper.name}}; tide {{data.tide}}."}}
        :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :lit        :end :lit}
-                     {:start :tending :event :turn-ended :end :unlit}]}
+                     {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
 
   Scenario: start seeds the data and a later turn renders it, nested keys included

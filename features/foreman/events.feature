@@ -5,8 +5,10 @@ Feature: Foreman — event intake
   before acknowledging it. Consuming the event appends its transition
   (or unhandled record) with the event id. A repeated id changes nothing.
   A turn joins an instance through the observer ref
-  foreman:<machine>/<instance> and reports :turn-started, :turn-ended,
-  :turn-failed, and :turn-died. A :turn-ended row keyed on a state the
+  foreman:<machine>/<instance> and reports :foreman/turn-started,
+  :foreman/turn-ended (only for a turn that sent no signal: one outcome
+  per turn), :foreman/turn-failed, and :foreman/turn-died. The :foreman
+  namespace is reserved for these. A :foreman/turn-ended row keyed on a state the
   crew should have signaled out of is the machine's backstop.
 
   Background:
@@ -106,7 +108,8 @@ Feature: Foreman — event intake
       | beacon-7\s+dark                                                            |
       | (?s)dusk: dark -> lit\s+\[tide-7\] via http.*dawn: lit -> dark\s+\[tide-8\] via cli |
 
-  Scenario: a turn that signals moves the instance; its observations are recorded unhandled
+  @wip
+  Scenario: a turn that signals moves the instance; it reports no turn-ended (one outcome per turn)
     Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
       | path  | value  |
@@ -124,17 +127,19 @@ Feature: Foreman — event intake
     Then the exit code is 0
     When isaac is run with "foreman status lighthouse-watch beacon-7"
     Then the stdout matches:
-      | pattern                                                                                          |
-      | beacon-7\s+lit                                                                                   |
-      | (?s)unhandled: turn-started.*dusk: dark -> lit\s+\[[^\]]+\] via tool.*unhandled: turn-ended |
+      | pattern                                                                        |
+      | beacon-7\s+lit                                                                 |
+      | (?s)unhandled: foreman/turn-started.*dusk: dark -> lit\s+\[[^\]]+\] via tool |
+    And the stdout does not contain "turn-ended"
 
+  @wip
   Scenario: a turn that ends without signaling follows the backstop row; a failed turn follows its own
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
       {:initial :dark
        :transitions [{:start :dark :event :dusk        :end :lit}
-                     {:start :dark :event :turn-ended  :end :unlit}
-                     {:start :dark :event :turn-failed :end :storm-bound}]}
+                     {:start :dark :event :foreman/turn-ended  :end :unlit}
+                     {:start :dark :event :foreman/turn-failed :end :storm-bound}]}
       """
     And the following sessions exist:
       | name      |
@@ -158,8 +163,8 @@ Feature: Foreman — event intake
       | beacon-9\s+storm-bound   |
     When isaac is run with "foreman status lighthouse-watch beacon-7"
     Then the stdout matches:
-      | pattern                                          |
-      | turn-ended: dark -> unlit\s+\[[^\]]+\] via observer |
+      | pattern                                                  |
+      | foreman/turn-ended: dark -> unlit\s+\[[^\]]+\] via observer |
 
   Scenario: a crew's signal with no transition gets a tool error it can read (isaac-qrl1)
     Given the crew "bartholomew" allows tools: "foreman/signal"

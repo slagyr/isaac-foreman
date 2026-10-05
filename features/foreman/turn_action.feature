@@ -3,7 +3,7 @@ Feature: Foreman — turn actions
   {:type :turn :frequencies {...} :resource-pools [...] :prompt "..."}.
   Foreman passes :frequencies and :resource-pools through untouched — it
   never selects a session or a directory. The prompt fills {{machine}},
-  {{instance}}, and {{data.<key>}} from the triggering event. Foreman's
+  {{instance}}, and {{data.<key>}} from the instance data. Foreman's
   turn observer rides every submitted turn, so its outcome returns as an
   event. Each submission carries the key <machine>/<instance>/<event-id>/
   <action>; Agent refuses a second request with the same key, so a retry
@@ -28,9 +28,10 @@ Feature: Foreman — turn actions
                              :prompt      "Light the lamp at {{instance}} ({{machine}}); tide {{data.tide}}."}}
        :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :lit        :end :lit}
-                     {:start :tending :event :turn-ended :end :unlit}]}
+                     {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
 
+  @wip
   Scenario: a transition submits one turn; the crew's signal moves the machine
     Given the following model responses are queued:
       | model | tool_call      | arguments                                                               |
@@ -48,8 +49,10 @@ Feature: Foreman — turn actions
       | pattern                                                      |
       | beacon-7\s+lit                                               |
       | tend-lamp \(turn\) submitted \S+                             |
-      | (?s)lit: tending -> lit\s+\[[^\]]+\] via tool[\s\S]*unhandled: turn-ended |
+      | lit: tending -> lit\s+\[[^\]]+\] via tool                   |
+    And the stdout does not contain "turn-ended"
 
+  @wip
   Scenario: a turn action waits on a busy pool; the unsignaled turn takes the backstop row
     Given a scripted resource pool "dock" admits 1 turn at a time
     And resource pool "dock" is closed
@@ -62,7 +65,7 @@ Feature: Foreman — turn actions
                              :prompt         "Light the lamp at {{instance}}."}}
        :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
                      {:start :tending :event :lit        :end :lit}
-                     {:start :tending :event :turn-ended :end :unlit}]}
+                     {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
     And the following model responses are queued:
       | type | content               | model |
@@ -83,8 +86,9 @@ Feature: Foreman — turn actions
     Then the stdout matches:
       | pattern                                                  |
       | beacon-7\s+unlit                                         |
-      | turn-ended: tending -> unlit\s+\[[^\]]+\] via observer   |
+      | foreman/turn-ended: tending -> unlit\s+\[[^\]]+\] via observer |
 
+  @wip
   Scenario: a refused submission stays pending with its error until retried
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -94,7 +98,7 @@ Feature: Foreman — turn actions
                              :resource-pools ["drydock"]
                              :prompt         "Light the lamp at {{instance}}."}}
        :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
-                     {:start :tending :event :turn-ended :end :unlit}]}
+                     {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
@@ -130,7 +134,7 @@ Feature: Foreman — turn actions
                              :resource-pools ["dock"]
                              :prompt         "Light the lamp at {{instance}}."}}
        :transitions [{:start :dark    :event :dusk       :end :tending :actions [:tend-lamp]}
-                     {:start :tending :event :turn-ended :end :unlit}]}
+                     {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
     And the following model responses are queued:
       | type | content        | model |
