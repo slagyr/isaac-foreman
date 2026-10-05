@@ -1,7 +1,8 @@
 (ns isaac.foreman.machine
   "Pure state-machine engine: parse, validate, and step. No I/O."
   (:require
-    [clojure.string :as str]))
+    [clojure.string :as str]
+    [isaac.foundation.template :as template]))
 
 (defn parse
   "Accept a machine table. Already-a-map tables pass through."
@@ -94,24 +95,15 @@
   "Fill {{machine}}, {{instance}}, and {{data.<key>}} placeholders in a
    prompt template. A missing data key fills empty."
   [template machine id data]
-  (str/replace (or template "") #"\{\{(machine|instance|data\.[^}]+)\}\}"
-               (fn [[_ field]]
-                 (str (case field
-                        "machine" (name machine)
-                        "instance" (name id)
-                        (or (get-in data (mapv keyword (str/split (subs field 5) #"\."))) ""))))))
+  (template/render template {:machine (name machine) :instance (name id) :data data}
+                   {:on-missing :empty}))
 
 (defn fill-frequencies
   "Render string values in a turn's target, including vector members. Preserve
    non-string selection directives unchanged."
   [frequencies machine id data]
-  (let [fill (fn [value]
-               (cond
-                 (string? value) (fill-prompt value machine id data)
-                 (vector? value) (mapv (fn [item]
-                                         (if (string? item) (fill-prompt item machine id data) item)) value)
-                 :else value))]
-    (update-vals frequencies fill)))
+  (template/render-all frequencies {:machine (name machine) :instance (name id) :data data}
+                       {:on-missing :empty}))
 
 (defn refusal-message
   "The message recorded (and thrown) when a signal has no matching transition."
