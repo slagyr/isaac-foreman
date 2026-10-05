@@ -2,6 +2,7 @@
   (:require
     [clojure.walk :as walk]
     [isaac.foreman.core :as core]
+    [isaac.foreman.turn-observer :as turn-observer]
     [isaac.foundation.fs :as fs]
     [isaac.agent.session.store.spi :as session-store]
     [isaac.agent.tool.fs-bounds :as bounds]))
@@ -19,6 +20,8 @@
                                  :event (keyword (get args "event")) :data (get args "data")
                                  :event-id (get args "id") :source :tool
                                  :crew crew :session session}))]
+        (turn-observer/record-signal! (get args "machine") (get args "instance")
+                                      (get args "request_id"))
         {:result out})
       (catch Exception e
         {:isError true :error (ex-message e)}))))

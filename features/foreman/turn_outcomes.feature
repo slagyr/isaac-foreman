@@ -33,7 +33,6 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
                      {:start :reading :event :foreman/turn-ended :end :tending :actions [:tend-lamp]}]}
       """
 
-  @wip
   Scenario: a turn's output is stored in the data, and the next action uses it
     Given the following model responses are queued:
       | type | content          | model |
@@ -49,7 +48,6 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
       | pattern                       |
       | :summary\s+"The oil is low."  |
 
-  @wip
   Scenario: a turn whose output is stored is told so in its preamble
     Given the following model responses are queued:
       | type | content          | model |
@@ -61,7 +59,6 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
       | key      | value                                        |
       | messages | #"(?s)stored as the instance's summary"      |
 
-  @wip
   Scenario: the foreman namespace is reserved for Foreman's own events
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And isaac is run with "foreman signal lighthouse-watch beacon-7 foreman/turn-ended"

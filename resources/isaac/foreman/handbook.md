@@ -90,7 +90,12 @@ its own action of the same name. Three types are declared in the schema:
   ids the turn must lease before it runs — same admission mechanism as any
   other turn, see `isaac.agent`), and
   `config:foreman.actions["tend-lamp"].prompt` (a template filled at
-  submission time — see Prompt templates, below).
+  submission time — see Prompt templates, below). With `:output {:data :key}`
+  the reply is stored in the instance data as `:key` before the turn outcome
+  is applied; Foreman writes a preamble instructing the model to reply with
+  only that content.
+- **`:exec`** — runs a declared argv command. With `:output {:data :key}`
+  its stdout is stored as instance data before the next action executes.
 - **`:notify`** — declared as a valid `:type` in the schema, but **nothing
   in Foreman currently consumes it**: unlike `:log` (executed immediately)
   and `:turn` (submitted and tracked as pending), a `:notify` action
@@ -148,9 +153,13 @@ doors, all converging on the same durable path: the crew tool
 `foreman__signal`, `POST /foreman/events`, `isaac foreman signal <machine>
 <id> <event>`, and a **turn observer** ref `foreman:<machine>/<instance>`
 (attached to a turn with `--observer`, or via a machine's own config —
-see Turn actions, below) that automatically signals `:turn-started`,
-`:turn-ended` (success), `:turn-failed` (error), and `:turn-died`
-(the process died mid-turn) as that turn's lifecycle unfolds.
+see Turn actions, below) that automatically signals `:foreman/turn-started`,
+`:foreman/turn-ended` (success), `:foreman/turn-failed` (error), and `:foreman/turn-died`
+(the process died mid-turn) as that turn's lifecycle unfolds. A successful
+turn that called `foreman__signal` reports no `:foreman/turn-ended`: its
+signal is the one outcome. Failed and died turns still report their failure.
+The `foreman` event namespace is reserved for these observer events; CLI,
+HTTP and the crew tool cannot submit events in it.
 
 Every door writes the same **envelope** — event, source, optional data,
 crew, session — to the instance's durable event history *before*
@@ -170,7 +179,7 @@ CLI exits 1 with `no transition for <event> from <state>`; HTTP answers
 409 naming the same message; the crew tool's `foreman__signal` result
 comes back as a tool error the model can read and correct. The one
 exception is the turn-observer door: since a turn's own lifecycle events
-(`:turn-started`, etc.) often have no matching row on a given machine by
+(`:foreman/turn-started`, etc.) often have no matching row on a given machine by
 design, an unhandled signal from that source is recorded in history and
 logged to stderr, but never raised as an error back into the turn — see
 Turn actions, below, for the "backstop row" pattern this implies.
@@ -198,7 +207,7 @@ it to one state.
   typo — `isaac foreman list <machine>` shows what actually exists.
 - **A turn's lifecycle events aren't moving the instance, and nothing
   looks broken.** Confirm the machine actually has rows for
-  `:turn-started`/`:turn-ended`/`:turn-failed`/`:turn-died` from the
+  `:foreman/turn-started`/`:foreman/turn-ended`/`:foreman/turn-failed`/`:foreman/turn-died` from the
   relevant state — an unhandled turn-observer signal is by design silent
   (history + stderr only), not an error, so a missing row just means
   "nothing happens," not "something's wrong."
@@ -230,8 +239,8 @@ fail — the turn is admitted to `isaac.agent`'s own held-turn queue (see
 `isaac.agent`) and runs once its pool frees up, same as any other pooled
 turn. Because the machine has already moved to its "awaiting the turn"
 state by the time the turn itself is merely *parked*, a well-formed
-machine should always include a **backstop row** for `:turn-ended` /
-`:turn-failed` / `:turn-died` from that awaiting state — the case where
+machine should always include a **backstop row** for `:foreman/turn-ended` /
+`:foreman/turn-failed` / `:foreman/turn-died` from that awaiting state — the case where
 the crew's turn finishes (or dies) without ever calling `foreman__signal`
 itself. Without a backstop row, the instance would simply pile up
 unhandled turn-lifecycle history and never leave the awaiting state.
@@ -248,8 +257,8 @@ unhandled turn-lifecycle history and never leave the awaiting state.
   time and is just waiting on the turn to finish — that's not a failure
   state, and retry correctly leaves it alone.
 - **An instance seems stuck in an "awaiting turn" state forever.** Check
-  whether the machine has a backstop row for `:turn-ended`/
-  `:turn-failed`/`:turn-died` from that state — without one, a turn that
+  whether the machine has a backstop row for `:foreman/turn-ended`/
+  `:foreman/turn-failed`/`:foreman/turn-died` from that state — without one, a turn that
   finishes without the crew explicitly signaling leaves the instance
   parked with only unhandled history to show for it.
 - **A resource-pool-gated turn seems to have vanished.** It's most likely

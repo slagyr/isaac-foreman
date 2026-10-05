@@ -108,7 +108,6 @@ Feature: Foreman — event intake
       | beacon-7\s+dark                                                            |
       | (?s)dusk: dark -> lit\s+\[tide-7\] via http.*dawn: lit -> dark\s+\[tide-8\] via cli |
 
-  @wip
   Scenario: a turn that signals moves the instance; it reports no turn-ended (one outcome per turn)
     Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
@@ -132,7 +131,6 @@ Feature: Foreman — event intake
       | (?s)unhandled: foreman/turn-started.*dusk: dark -> lit\s+\[[^\]]+\] via tool |
     And the stdout does not contain "turn-ended"
 
-  @wip
   Scenario: a turn that ends without signaling follows the backstop row; a failed turn follows its own
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """

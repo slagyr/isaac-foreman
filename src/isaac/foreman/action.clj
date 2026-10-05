@@ -21,7 +21,7 @@
   (let [{:keys [output failure]} (exec/run! action spec machine instance data)]
     (if failure
       {:failed failure}
-      (if-let [into (:into spec)]
+      (if-let [into (get-in spec [:output :data])]
         {:data {into output}}
         (do (println (str (name action) " (exec): " (pr-str output))) nil)))))
 

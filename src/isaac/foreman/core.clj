@@ -47,11 +47,15 @@
   (let [spec (machine/resolve-action table (:name entry) shared)]
     (try
       (let [request (turn-submit/submit!
-                      (merge (select-keys opts [:fs :root :machine :id])
+                      (merge (select-keys opts [:fs :root :machine])
                              {:frequencies (:frequencies spec)
                               :resource-pools (:resource-pools spec)
                               :prompt (:prompt entry)
-                              :observers [[:foreman (name (:machine opts)) (name (:id opts))]]
+                              :preamble (when-let [key (get-in spec [:output :data])]
+                                          (str "Your reply will be stored as the instance's " (name key)
+                                               ". Reply with only that content."))
+                              :observers [(cond-> [:foreman (name (:machine opts)) (name (:id opts))]
+                                            (get-in spec [:output :data]) (conj (get-in spec [:output :data])))]
                               :origin {:kind :foreman :machine (name (:machine opts))
                                        :instance (name (:id opts))}
                               :key (:key entry)}))]
@@ -78,7 +82,7 @@
     updated))
 
 (defn- format-transition [id from to event]
-  (str (name id) ": " (name from) " -> " (name to) " (" (name event) ")"))
+  (str (name id) ": " (name from) " -> " (name to) " (" (subs (str event) 1) ")"))
 
 (defn- unhandled-outcome
   "Find this event id's :unhandled history record, if that is how it resolved."
@@ -137,7 +141,7 @@
       (do (store/record-unhandled! (assoc details :state (:state inst)))
           (when (= :observer source)
             (binding [*out* *err*]
-              (println (str "unhandled: " (name event) " (state " (name (:state inst)) ")"))))
+              (println (str "unhandled: " (subs (str event) 1) " (state " (name (:state inst)) ")"))))
           inst)
       (let [updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
                                                         :actions (:actions result)))
@@ -159,6 +163,8 @@
 (defn signal!
   "Durably receive an event, then drain prior events in arrival order."
   [{:keys [root fs machine id event now event-id source data crew session request-id] :as opts}]
+  (when (and (= "foreman" (namespace event)) (not= :observer source))
+    (throw (ex-info "foreman namespace is reserved" {:event event})))
   (let [cfg    (load-cfg opts)
         table  (machine-table cfg machine)
         inst   (store/get-instance opts)
@@ -198,10 +204,10 @@
                                   (when (:crew rec) (str " (crew " (:crew rec) ", session " (:session rec) ")"))))]
 
   (case (:type rec)
-    :transition (str (name (:event rec)) ": "
+    :transition (str (subs (str (:event rec)) 1) ": "
                      (name (:from rec)) " -> " (name (:to rec)) suffix)
-    :unhandled  (str "unhandled: " (name (:event rec)) suffix)
-    :duplicate (str "duplicate: " (name (:event rec)) suffix)
+    :unhandled  (str "unhandled: " (subs (str (:event rec)) 1) suffix)
+    :duplicate (str "duplicate: " (subs (str (:event rec)) 1) suffix)
     :received nil
     (pr-str rec))))
 

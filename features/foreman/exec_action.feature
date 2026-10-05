@@ -22,7 +22,6 @@ Feature: Foreman — exec actions (isaac-c1hy)
       | name      | crew        |
       | lamp-room | bartholomew |
 
-  @wip
   Scenario: an exec action loads data that the next action's prompt uses
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -49,7 +48,6 @@ Feature: Foreman — exec actions (isaac-c1hy)
       | pattern                  |
       | :title\s+"Fix the lamp"  |
 
-  @wip
   Scenario: the command and cwd are templated from the data; plain output is kept as text
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -67,7 +65,6 @@ Feature: Foreman — exec actions (isaac-c1hy)
       | :heard\s+"high tide"  |
       | :cwd\s+"/"            |
 
-  @wip
   Scenario: a failing command stops the remaining actions and fires <action>-failed
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -91,7 +88,6 @@ Feature: Foreman — exec actions (isaac-c1hy)
       | :exit\s+3                   |
       | :stderr\s+"log is missing"  |
 
-  @wip
   Scenario: a command that outlives its timeout is stopped and fails
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """

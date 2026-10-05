@@ -143,7 +143,7 @@
   (it "persists the transition before submitting a keyed turn with event data"
     (let [request (atom nil)]
       (with-redefs [submit/submit! (fn [req]
-                                     (should= :tending (:state (store/get-instance req)))
+                                     (should= :tending (:state (store/get-instance (assoc req :id "beacon-7"))))
                                      (reset! request req)
                                      {:id "turn-17"})]
         (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"
@@ -286,7 +286,7 @@
 
   (it "loads JSON before rendering a subsequent turn"
     (let [table {:initial :dark
-                 :actions {:load-log {:type :exec :command ["printf" "{\"title\":\"Fix the lamp\"}"] :into :log}
+                 :actions {:load-log {:type :exec :command ["printf" "{\"title\":\"Fix the lamp\"}"] :output {:data :log}}
                            :tend-lamp {:type :turn :frequencies {:session "lamp-room"}
                                        :prompt "Work {{data.log.title}}"}}
                  :transitions [{:start :dark :event :dusk :end :lit :actions [:load-log :tend-lamp]}]}
@@ -303,8 +303,8 @@
 
   (it "templates the argv and cwd, retaining unstructured stdout as text"
     (let [table {:initial :dark
-                 :actions {:echo {:type :exec :command ["printf" "%s tide" "{{data.tide}}"] :into :heard}
-                           :where {:type :exec :command ["pwd"] :cwd "{{data.dir}}" :into :cwd}}
+                 :actions {:echo {:type :exec :command ["printf" "%s tide" "{{data.tide}}"] :output {:data :heard}}
+                           :where {:type :exec :command ["pwd"] :cwd "{{data.dir}}" :output {:data :cwd}}}
                  :transitions [{:start :dark :event :dusk :end :lit :actions [:echo :where]}]}]
       (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
                               :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
@@ -316,8 +316,8 @@
 
   (it "stops the list on nonzero exit and signals failure with metadata"
     (let [table {:initial :dark
-                 :actions {:load-log {:type :exec :command ["sh" "-c" "echo log is missing >&2; exit 3"] :into :log}
-                           :later {:type :exec :command ["printf" "unexpected"] :into :later}}
+                 :actions {:load-log {:type :exec :command ["sh" "-c" "echo log is missing >&2; exit 3"] :output {:data :log}}
+                           :later {:type :exec :command ["printf" "unexpected"] :output {:data :later}}}
                  :transitions [{:start :dark :event :dusk :end :tending :actions [:load-log :later]}
                                {:start :tending :event :load-log-failed :end :stranded}]}]
       (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
@@ -332,7 +332,7 @@
 
   (it "kills a command on timeout and signals failure"
     (let [table {:initial :dark
-                 :actions {:wait-tide {:type :exec :command ["sleep" "5"] :timeout 1 :into :tide}}
+                 :actions {:wait-tide {:type :exec :command ["sleep" "5"] :timeout 1 :output {:data :tide}}}
                  :transitions [{:start :dark :event :dusk :end :waiting :actions [:wait-tide]}
                                {:start :waiting :event :wait-tide-failed :end :stranded}]}]
       (fs/spit @mem (str @root "/config/isaac.edn") (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
