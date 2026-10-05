@@ -4,7 +4,6 @@
     [cheshire.core :as json]
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.foreman.machine :as machine]
     [isaac.foundation.logger :as log])
   (:import (java.io File)
            (java.util.concurrent TimeUnit)))
@@ -20,9 +19,8 @@
         text)))
 
 (defn run! [action spec machine-name id data]
-  (let [fill #(machine/fill-prompt % machine-name id data)
-        argv (mapv fill (:command spec))
-        cwd (some-> (:cwd spec) fill)
+  (let [argv (vec (:command spec))
+        cwd (:cwd spec)
         started (System/nanoTime)]
     (try
       (let [builder (ProcessBuilder. ^java.util.List argv)

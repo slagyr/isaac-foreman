@@ -31,6 +31,25 @@
                                                         :actions [:sound-alarm]}]}}}})]
       (should= [] (:errors result))))
 
+  (context "template variables"
+    (it "rejects unknown placeholders in local and shared action strings, naming the machine and action"
+      (let [local {:actions {:note {:type :log :message "{{instnace}}"}}}
+            result (sut/check-template-variables
+                     {:config {:foreman {:actions {:report {:type :log :message "{{unknown}}"}}}}
+                      :result {:raw {:machines {"lighthouse-watch" local}}}})]
+        (should= 2 (count (:errors result)))
+        (should (some #(and (re-find #"machines.lighthouse-watch.actions.note" (:key %))
+                           (re-find #"instnace" (:value %))) (:errors result)))
+        (should (some #(and (re-find #"foreman.actions.report" (:key %))
+                           (re-find #"unknown" (:value %))) (:errors result)))))
+
+    (it "accepts the fixed variables and a missing data path in nested values"
+      (should= [] (:errors (sut/check-template-variables
+                             {:result {:raw {:machines {"lighthouse-watch"
+                                                      {:actions {:note {:type :turn
+                                                                        :prompt "{{machine}} {{instance}} {{state}} {{event}}"
+                                                                        :frequencies {:session ["{{data.keeper.name}}"]}}}}}}}})))))
+
   (context "check-actions-shape"
 
     (it "accepts a row whose actions are a vector under :actions"

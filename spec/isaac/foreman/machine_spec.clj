@@ -49,8 +49,17 @@
         (should= :handled (:status result))))
 
     (it "renders dotted data paths and missing values"
-      (should= "Atticus / " (sut/fill-prompt "{{data.keeper.name}} / {{data.absent}}"
-                                                  "watch" "beacon" {:keeper {:name "Atticus"}})))
+      (should= {:message "Atticus / "}
+               (sut/render-action {:message "{{data.keeper.name}} / {{data.absent}}"}
+                                  "watch" "beacon" :lit :dusk {:keeper {:name "Atticus"}})))
+
+    (it "renders every string in an action while leaving keys, keywords and numbers alone"
+      (should= {:type :turn :timeout 5 :resource-pools ["dock-beacon" ""]
+                :frequencies {:session "lit-dusk" :create :if-missing}}
+               (sut/render-action {:type :turn :timeout 5
+                                   :resource-pools ["dock-{{instance}}" "{{data.absent}}"]
+                                   :frequencies {:session "{{state}}-{{event}}" :create :if-missing}}
+                                  "watch" "beacon" :lit :dusk {})))
 
     (it "returns unhandled without changing state when no row matches"
       (let [result (sut/step lighthouse :dark :earthquake)]

@@ -160,6 +160,19 @@
       (should (str/includes? (with-out-str (sut/status {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))
                              "tend-lamp (turn) submitted turn-17"))))
 
+  (it "renders a log action with instance data and the entered state and event"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          table {:initial :dark
+                 :actions {:note {:type :log :message "{{machine}}/{{instance}} {{state}} {{event}} {{data.keeper.name}}"}}
+                 :transitions [{:start :dark :event :dusk :end :lit :actions [:note]}]}]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (sut/data! (assoc opts :set {:keeper {:name "Atticus"}}))
+      (should (str/includes? (with-out-str (sut/signal! (assoc opts :event :dusk)))
+                             "lighthouse-watch/beacon-7 lit dusk Atticus"))))
+
   (it "renders a turn's target at enqueue and preserves it on retry"
     (let [request (atom nil)
           opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}

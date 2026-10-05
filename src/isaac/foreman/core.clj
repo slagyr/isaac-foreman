@@ -42,8 +42,9 @@
   (cond-> {:name action-name :type (classify-action spec)}
     (= :turn (:type spec))
     (assoc :key (str (name machine) "/" (name id) "/" (:id envelope) "/" (name action-name))
-           :frequencies (machine/fill-frequencies (:frequencies spec) machine id (:data envelope))
-           :prompt (machine/fill-prompt (:prompt spec) machine id (:data envelope))
+           :frequencies (:frequencies spec)
+           :resource-pools (:resource-pools spec)
+           :prompt (:prompt spec)
            :valid-events valid-events
            :state state)))
 
@@ -53,7 +54,7 @@
       (let [request (turn-submit/submit!
                       (merge (select-keys opts [:fs :root :machine])
                              {:frequencies (:frequencies entry)
-                              :resource-pools (:resource-pools spec)
+                              :resource-pools (:resource-pools entry)
                               :prompt (:prompt entry)
                               :preamble (str "This turn is part of Foreman machine " (name (:machine opts))
                                              ", instance " (name (:id opts)) " (state " (name (or (:state entry) (:state (store/get-instance opts)))) ")."
@@ -126,18 +127,20 @@
          replies []]
     (if-not action-name
       {:pending pending :replies replies}
-      (let [spec (machine/resolve-action table action-name shared)
+      (let [state (:state (store/get-instance opts))
+            data (:data (store/get-instance opts))
+            spec (machine/render-action (machine/resolve-action table action-name shared)
+                                        (:machine opts) (:id opts) state (:event envelope) data)
             type (classify-action spec)
             ctx {:machine (:machine opts) :instance (:id opts)
-                 :data (:data (store/get-instance opts)) :event (:event envelope)
+                 :data data :event (:event envelope)
                  :action action-name}
             {:keys [data failed pending? reply]} (action/run! type ctx spec)]
         (when data (store/set-data! opts data))
         (cond
           failed {:pending pending :replies replies :failure failed}
           pending? (recur remaining (conj pending (pending-entry action-name spec (:machine opts) (:id opts)
-                                                                (assoc envelope :data (:data (store/get-instance opts)))
-                                                                (:state (store/get-instance opts))
+                                                                envelope state
                                                                 (machine/reply-events table (:state (store/get-instance opts))))) replies)
           :else (recur remaining pending (cond-> replies reply (conj {:reply reply :action action-name}))))))))
 

@@ -1,6 +1,7 @@
 (ns isaac.foreman.checks
-  "Post-load config checks: dangling action refs and :actions shape on every
-   machine table.")
+  "Post-load config checks for machine actions and template variables."
+  (:require
+    [isaac.foundation.template :as template]))
 
 (defn- action-names [machine shared]
   (set (concat (keys (:actions machine))
@@ -45,6 +46,30 @@
   [ctx]
   (merge (get-in ctx [:result :root :machines])
          (get-in ctx [:result :raw :machines])))
+
+(defn- allowed-variable? [variable]
+  (or (contains? #{"machine" "instance" "state" "event"} variable)
+      (boolean (re-matches #"data\.[\w-]+(?:\.[\w-]+)*" variable))))
+
+(defn- action-template-errors [prefix actions]
+  (for [[action spec] actions
+        variable (sort (template/placeholders spec))
+        :when (not (allowed-variable? variable))]
+    {:key (str prefix ".actions." (name action))
+     :value (str "unknown template variable: " variable)}))
+
+(defn check-template-variables
+  "Reject unknown placeholders in every action spec, including nested strings."
+  [{:keys [config] :as ctx}]
+  (let [machines (merge (:machines config) (raw-machines ctx))
+        shared (merge (get-in config [:foreman :actions])
+                      (get-in ctx [:result :root :foreman :actions])
+                      (get-in ctx [:result :raw :foreman :actions]))]
+    {:errors (vec (concat (action-template-errors "foreman" shared)
+                          (mapcat (fn [[machine-id machine]]
+                                    (action-template-errors (str "machines." machine-id) (:actions machine)))
+                                  machines)))
+     :warnings []}))
 
 (defn- legacy-action-errors [machine-id row]
   (when (contains? row :action)

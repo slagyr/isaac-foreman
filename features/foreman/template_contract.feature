@@ -12,7 +12,6 @@ Feature: Foreman — the template contract (isaac-wh2o)
     Given an Isaac root at "target/test-state"
     And default Grover setup
 
-  @wip
   Scenario: state and event are template variables
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -25,7 +24,6 @@ Feature: Foreman — the template contract (isaac-wh2o)
     Then the stdout contains "lighthouse-watch/beacon-7 entered lit on dusk"
     And the exit code is 0
 
-  @wip
   Scenario: a log message reads the instance data like any other string
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -37,7 +35,6 @@ Feature: Foreman — the template contract (isaac-wh2o)
     And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
     Then the stdout contains "keeper Atticus lit beacon-7"
 
-  @wip
   Scenario: an unknown template variable is a config error
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """

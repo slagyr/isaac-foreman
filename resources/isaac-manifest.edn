@@ -119,4 +119,5 @@
 
  :isaac.config/check
  {:dangling-actions {:fn isaac.foreman.checks/check-dangling-actions}
-  :actions-shape    {:fn isaac.foreman.checks/check-actions-shape}}}
+  :actions-shape    {:fn isaac.foreman.checks/check-actions-shape}
+  :template-variables {:fn isaac.foreman.checks/check-template-variables}}}

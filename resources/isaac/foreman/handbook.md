@@ -107,19 +107,26 @@ its own action of the same name. Three types are declared in the schema:
   nor submits, nor clears. Don't rely on `:notify` for anything yet.
   `[verify]`
 
-### Prompt templates
+### Action templates
 
-A `:turn` action's `:prompt` is filled at the moment its transition fires,
-substituting `{{machine}}` (the machine's name), `{{instance}}` (the
-instance id), and `{{data.<key>}}` (a key from the triggering event's
-`:data` map — see Signaling an instance) — a referenced `data` key that's
-absent fills as empty, not an error. This is plain string substitution,
-not a soul or a full prompt-templating system; write the rest of the
-prompt as literal text around the placeholders. String values in a `:turn`
-action's `:frequencies`, including strings inside vectors such as `:session`
-and `:tags`, use the same placeholders. Keywords and other non-string values
-pass through unchanged. The rendered target is saved with the pending action
-so retries use the original event's data rather than a later event's data.
+Every string value anywhere in an action's spec is rendered when that action
+fires: `:prompt`, `:frequencies` (including nested vectors), `:resource-pools`,
+`:command`, `:cwd`, and `:log`'s `:message`. Keywords, numbers, and map keys
+remain unchanged. The fixed variables are:
+
+- `{{machine}}` — the machine name.
+- `{{instance}}` — the instance id.
+- `{{state}}` — the state just entered.
+- `{{event}}` — the event that fired the transition.
+- `{{data.<path>}}` — a dotted path in the instance's current data, including
+  data from the triggering event and earlier actions. Missing data paths fill
+  empty because data can arrive over time.
+
+`isaac config validate` rejects unknown placeholders with the machine and
+action named in the error; missing data is not a config error. This is plain
+string substitution through the foundation template engine, not a soul or a
+full prompt-templating system. Turn targets, prompts, and resource pools are
+saved with the pending action so retries keep the original rendered values.
 For a session per instance, use `:frequencies {:session "bean-{{instance}}"
 :create :if-missing}`.
 

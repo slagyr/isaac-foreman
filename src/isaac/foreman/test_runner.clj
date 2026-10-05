@@ -66,9 +66,10 @@
   (into {} (map (fn [[k v]] [(keyword k) (parse-cell v)])) (table-rows table)))
 
 (defn- actual-target [ctx action-name]
-  (let [spec (machine/resolve-action (:table ctx) action-name (:shared ctx))]
-    (cond-> (machine/fill-frequencies (or (:frequencies spec) {}) (:machine ctx) (:id ctx) {})
-      (:resource-pools spec) (assoc :resource-pools (:resource-pools spec)))))
+  (let [spec (machine/resolve-action (:table ctx) action-name (:shared ctx))
+        rendered (machine/render-action spec (:machine ctx) (:id ctx) (:state ctx) :test {})]
+    (cond-> (:frequencies rendered)
+      (:resource-pools rendered) (assoc :resource-pools (:resource-pools rendered)))))
 
 ;; ----- scenario context -----
 
@@ -84,7 +85,7 @@
 
 (defn- filled-prompt [ctx action-name]
   (let [spec (action-spec ctx action-name)]
-    (machine/fill-prompt (:prompt spec) (:machine ctx) (:id ctx) {})))
+    (:prompt (machine/render-action spec (:machine ctx) (:id ctx) (:state ctx) :test {}))))
 
 ;; ----- build steps (Given) -----
 

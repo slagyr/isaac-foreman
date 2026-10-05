@@ -91,18 +91,12 @@
   (or (get-in machine [:actions action-name])
       (get shared action-name)))
 
-(defn fill-prompt
-  "Fill {{machine}}, {{instance}}, and {{data.<key>}} placeholders in a
-   prompt template. A missing data key fills empty."
-  [template machine id data]
-  (template/render template {:machine (name machine) :instance (name id) :data data}
-                   {:on-missing :empty}))
-
-(defn fill-frequencies
-  "Render string values in a turn's target, including vector members. Preserve
-   non-string selection directives unchanged."
-  [frequencies machine id data]
-  (template/render-all frequencies {:machine (name machine) :instance (name id) :data data}
+(defn render-action
+  "Render all string leaves of an action using the entered state and event.
+   Instance data is read at execution time, not from the event payload."
+  [spec machine id state event data]
+  (template/render-all spec {:machine (name machine) :instance (name id)
+                             :state (name state) :event (name event) :data data}
                        {:on-missing :empty}))
 
 (defn refusal-message
