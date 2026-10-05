@@ -284,6 +284,22 @@
       (fs/mkdirs @mem (str @root "/config"))
       (example)))
 
+  (it "treats an exec's last stdout line as an event with a reason"
+    (let [table {:initial :dark
+                 :actions {:read-log {:type :exec :command ["printf" "Wick trimmed.\nevent: lit oil is low"]
+                                      :output :event}}
+                 :transitions [{:start :dark :event :dusk :end :tending :actions [:read-log]}
+                               {:start :tending :event :lit :end :lit}]}]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/start! @opts))
+      (with-out-str (sut/signal! (assoc @opts :event :dusk)))
+      (should= :lit (:state (store/get-instance @opts)))
+      (should= :exec (:source (last (store/history @opts))))
+      (should= {:reason "oil is low"} (:data (last (store/history @opts))))))
+
   (it "loads JSON before rendering a subsequent turn"
     (let [table {:initial :dark
                  :actions {:load-log {:type :exec :command ["printf" "{\"title\":\"Fix the lamp\"}"] :output {:data :log}}

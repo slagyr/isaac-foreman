@@ -2,6 +2,7 @@
   (:require
     [isaac.agent.drive.observer :as drive]
     [isaac.foreman.turn-observer :as sut]
+    [isaac.foundation.logger :as log]
     [speclj.core :refer :all]))
 
 (describe "Foreman turn observations"
@@ -22,6 +23,25 @@
         (sut/record-signal! "lighthouse-watch" "beacon-7" "turn-42")
         (drive/on-turn-ended observer ctx :ok))
       (should= [:foreman/turn-started] @seen)))
+
+  (it "signals the last-line event and its reason rather than turn-ended"
+    (let [calls (atom [])
+          observer (sut/factory ["lighthouse-watch" "beacon-7" {:mode :event :valid-events [:lit :spilled] :action :tend-lamp}])
+          ctx {:session-key "lamp-room" :request-id "turn-42" :content "Wick trimmed.\nEVENT: spilled the oil is gone  \n"}]
+      (with-redefs [sut/emit! (fn [_ _ event context] (swap! calls conj [event (:reason context) (:source context)]))
+                    log/log* (fn [& _])
+                    sut/store-output! (fn [& _])]
+        (drive/on-turn-ended observer ctx :ok))
+      (should= [[:spilled "the oil is gone" :reply]] @calls)))
+
+  (it "ignores an invalid last-line event and reports a quiet turn"
+    (let [events (atom [])
+          observer (sut/factory ["lighthouse-watch" "beacon-7" {:mode :event :valid-events [:lit] :action :tend-lamp}])]
+      (with-redefs [sut/emit! (fn [_ _ event _] (swap! events conj event))
+                    log/log* (fn [& _])
+                    sut/store-output! (fn [& _])]
+        (drive/on-turn-ended observer {:request-id "turn-42" :content "event: dawn"} :ok))
+      (should= [:foreman/turn-ended] @events)))
 
   (it "stores a reply before applying the unsignaled turn's outcome"
     (let [calls (atom [])

@@ -21,9 +21,11 @@
   (let [{:keys [output failure]} (exec/run! action spec machine instance data)]
     (if failure
       {:failed failure}
-      (if-let [into (get-in spec [:output :data])]
-        {:data {into output}}
-        (do (println (str (name action) " (exec): " (pr-str output))) nil)))))
+      (if (= :event (:output spec))
+        {:reply (str output) :action action}
+        (if-let [into (get-in spec [:output :data])]
+          {:data {into output}}
+          (do (println (str (name action) " (exec): " (pr-str output))) nil))))))
 
 (defn register! [[type {:keys [handler]}]]
   (nexus/register! [:isaac.foreman/actions type]

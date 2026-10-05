@@ -32,7 +32,6 @@ Feature: Foreman — a turn's reply as its event (isaac-79t1)
                      {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
 
-  @wip
   Scenario: the reply's last line names the event
     Given the following model responses are queued:
       | type | content                       | model |
@@ -46,7 +45,6 @@ Feature: Foreman — a turn's reply as its event (isaac-79t1)
       | lit: tending -> lit\s+\[[^\]]+\] via reply     |
     And the stdout does not contain "turn-ended"
 
-  @wip
   Scenario: the rest of the event line becomes the reason
     Given the following model responses are queued:
       | type | content                                 | model |
@@ -62,7 +60,6 @@ Feature: Foreman — a turn's reply as its event (isaac-79t1)
       | pattern               |
       | beacon-7\s+stranded   |
 
-  @wip
   Scenario: a reply with no event line is a quiet turn
     Given the following model responses are queued:
       | type | content                       | model |
@@ -75,7 +72,6 @@ Feature: Foreman — a turn's reply as its event (isaac-79t1)
       | beacon-7\s+unlit                                         |
       | foreman/turn-ended: tending -> unlit\s+\[[^\]]+\] via observer |
 
-  @wip
   Scenario: an event that is not valid from this state is a quiet turn
     Given the following model responses are queued:
       | type | content               | model |
@@ -87,7 +83,6 @@ Feature: Foreman — a turn's reply as its event (isaac-79t1)
       | pattern            |
       | beacon-7\s+unlit   |
 
-  @wip
   Scenario: the preamble lists the events valid from the state just entered
     Given the following model responses are queued:
       | type | content                   | model |

@@ -68,6 +68,21 @@
      :actions []
      :status  :unhandled}))
 
+(defn reply-events [machine state]
+  (->> (:transitions machine)
+       (filter #(or (= state (:start %)) (= :* (:start %))))
+       (map :event)
+       (remove #(= "foreman" (namespace %)))
+       distinct
+       vec))
+
+(defn parse-reply-event [content valid-events]
+  (let [line (some-> content str/trim str/split-lines last)
+        [_ raw reason] (when line (re-matches #"(?i)event:\s*([^\s]+)(?:\s+(.+))?" (str/trim line)))
+        event (when raw (keyword raw))]
+    {:parsed event :valid? (boolean (some #{event} valid-events))
+     :reason (some-> reason str/trim)}))
+
 (defn resolve-action
   "Look up action-name in the machine's own :actions, falling back to the
    shared :foreman :actions pool."

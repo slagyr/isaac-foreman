@@ -53,7 +53,8 @@
                                           :resource-pools {:type :seq :spec {:type :string}
                                                            :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
                                           :command {:type :seq :spec {:type :string} :description "Argv for :exec (no implicit shell)"}
-                                          :output {:type :map :schema {:data {:type :keyword :description "Instance data key for action output"}}}
+                                          :output {:type :one-of :specs [{:type :map :schema {:data {:type :keyword :description "Instance data key for action output"}}}
+                                                                      {:type :keyword :validations [[:one-of :event]]}]}
                                           :cwd {:type :string :description "Templated working directory for :exec"}
                                           :timeout {:type :int :description "Seconds before :exec is killed (default 60)"}
                                           :prompt {:type :string
@@ -91,7 +92,8 @@
                                                         :resource-pools {:type :seq :spec {:type :string}
                                                                          :description "Resource pool ids a :turn action's turn must lease before it runs; ignored by :log/:notify actions"}
                                                         :command {:type :seq :spec {:type :string} :description "Argv for :exec (no implicit shell)"}
-                                          :output {:type :map :schema {:data {:type :keyword :description "Instance data key for action output"}}}
+                                          :output {:type :one-of :specs [{:type :map :schema {:data {:type :keyword :description "Instance data key for action output"}}}
+                                                                      {:type :keyword :validations [[:one-of :event]]}]}
                                           :cwd {:type :string :description "Templated working directory for :exec"}
                                           :timeout {:type :int :description "Seconds before :exec is killed (default 60)"}
                                           :prompt {:type :string
