@@ -89,7 +89,7 @@
                           entry)) entries)]
     (store/set-pending! (assoc opts :pending updated))
     (when (some #(and (= :turn (:type %)) (:request-id %)) updated)
-      (worker/tick!))
+      (worker/wake!))
     (doseq [{:keys [name type request-id]} updated :when (and (= :turn type) request-id)]
       (println (str (clojure.core/name name) " (turn) submitted " request-id)))
     updated))

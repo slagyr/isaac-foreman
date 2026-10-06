@@ -21,24 +21,11 @@
                   args)))))
     true))
 
-;; isaac.agent.turn.submit/submit! is queue-only (isaac-e9jl/isaac-2lc4):
-;; a :turn action fired by `foreman signal` enqueues a durable record but
-;; running it needs a queue tick — in production a running server's own
-;; tick picks it up (same as hail: "hail ends at queue"). isaac.foreman.core
-;; already calls isaac.agent.turn.worker/tick! synchronously wherever it
-;; submits or resubmits a turn (signal! -> consume! -> retry!, and retry!
-;; itself), so the queue is always ticked inside `main/run`, in the CLI's
-;; own nexus scope with the command's own freshly-loaded config; tick! only
-;; claims and starts the turn before returning, though (isaac-e9jl), so the
-;; started future can still be running when the CLI process exits.
-;;
-;; This postflight only needs to await-idle! — not tick! again. An extra
-;; tick! here runs outside the command's nexus scope with no ambient config
-;; installed, so it falls back to its own reload; for a resource-pool-gated
-;; turn that reload can land a config composed without the scripted pool's
-;; entity-dir file still in play, re-processing an already-correctly-held
-;; record and wake-failing it as :unknown-resource-pool. await-idle! alone
-;; just waits out whatever tick! already started; a no-op when nothing is.
+;; The feature harness runs CLI commands inside the test process, which also
+;; owns the queue worker for ordinary scenarios. A fresh-shell scenario must
+;; temporarily model a process without a worker; its queued turn is driven
+;; explicitly by the later `turn queue ticks` step. Postflight only waits for
+;; turns started by the in-process server, never triggers a new queue pass.
 (cli-steps/register-isaac-run-postflight!
   (fn []
     (worker/await-idle!)

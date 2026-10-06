@@ -243,7 +243,7 @@
                          :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
                          :providers {"grover" {}} :machines {"lighthouse-watch" table}})))
     (with-redefs [submit/submit! (fn [_] {:id "turn-17"})
-                  worker/tick! (fn []
+                  worker/wake! (fn []
                                  (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
                                                               :id "beacon-7" :event :lit :source :observer})))]
       (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
@@ -254,7 +254,7 @@
   (it "wakes a newly accepted turn after persisting its request id"
     (let [at-wake (atom nil)]
       (with-redefs [submit/submit! (fn [_] {:id "turn-17"})
-                    worker/tick! (fn [] (reset! at-wake (:pending-actions
+                    worker/wake! (fn [] (reset! at-wake (:pending-actions
                                                          (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))]
         (with-out-str (sut/signal! {:fs @mem :root @root :machine "lighthouse-watch"
                                     :id "beacon-7" :event :dusk})))
@@ -367,7 +367,7 @@
                               :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
       (with-out-str (sut/start! @opts))
       (with-redefs [submit/submit! (fn [req] (reset! request req) {:id "turn-17"})
-                    worker/tick! (fn [])]
+                    worker/wake! (fn [])]
         (with-out-str (sut/signal! (assoc @opts :event :dusk))))
       (should= {:title "Fix the lamp"} (get-in (store/get-instance @opts) [:data :log]))
       (should= "Work Fix the lamp" (:prompt @request))))

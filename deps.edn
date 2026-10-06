@@ -10,7 +10,7 @@
  :deps {io.github.slagyr/isaac-foundation {:git/url "https://github.com/slagyr/isaac-foundation.git"
                                            :git/sha "edc18481808a050f8c2fd657f2e966e6040fcfc3"}
         io.github.slagyr/isaac-agent      {:git/url "https://github.com/slagyr/isaac-agent.git"
-                                           :git/sha "bd432ec28c25f1fddbcd2d5999211a019ff02e13"}
+                                           :git/sha "c96556b3fd8d983bc27421abd554457f3485487c"}
         io.github.slagyr/gherclj          {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}
 
  :aliases
@@ -70,7 +70,7 @@
                                                                            :git/sha "edc18481808a050f8c2fd657f2e966e6040fcfc3"
                                                                            :deps/root "spec-support"}
                            io.github.slagyr/isaac-agent-spec              {:git/url "https://github.com/slagyr/isaac-agent.git"
-                                                                           :git/sha "bd432ec28c25f1fddbcd2d5999211a019ff02e13"
+                                                                           :git/sha "c96556b3fd8d983bc27421abd554457f3485487c"
                                                                            :deps/root "spec"}
                            io.github.slagyr/isaac-http                  {:git/url "https://github.com/slagyr/isaac-http.git"
                                                                            :git/sha "4fdd535bb7231fa18d7812c6f0d5b2d35fab740c"}

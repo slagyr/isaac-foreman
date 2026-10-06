@@ -171,7 +171,6 @@ Feature: Foreman — turn actions
       | tend-lamp \(turn\) submitted \S+ |
     And the stdout does not contain "failed"
 
-  @wip
   Scenario: a signal from a fresh shell only queues the turn; the server's queue runs it (isaac-1ag9)
     Foreman pilot 1, second run: the shell's signal ran the queue tick in
     its own process, claimed the turn, and exited with it half-started.
