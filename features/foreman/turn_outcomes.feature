@@ -68,3 +68,28 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
     Then the stdout matches:
       | pattern          |
       | beacon-7\s+dark  |
+
+  @wip
+  Scenario: a dropped turn reaches the machine as turn-died (isaac-tais)
+    Given a scripted resource pool "dock" admits 1 turn at a time
+    And resource pool "dock" is closed
+    And the isaac file "config/machines/lighthouse-watch.edn" exists with:
+      """
+      {:initial :dark
+       :actions {:tend-lamp {:type           :turn
+                             :frequencies    {:session "lamp-room"}
+                             :resource-pools ["dock"]
+                             :prompt         "Light the lamp at {{instance}}."}}
+       :transitions [{:start :dark    :event :dusk              :end :tending :actions [:tend-lamp]}
+                     {:start :tending :event :foreman/turn-died :end :stalled}]}
+      """
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
+    And isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout contains "tend-lamp (turn) submitted"
+    When isaac is run with "turns drop #turn-id"
+    Then the exit code is 0
+    When isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern            |
+      | beacon-7\s+stalled |

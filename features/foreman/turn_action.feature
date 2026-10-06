@@ -153,3 +153,21 @@ Feature: Foreman — turn actions
     And session "lamp-room" has transcript not matching:
       | type    | message.role | message.content |
       | message | assistant    | Duplicate turn  |
+
+  @wip
+  Scenario: signal works from a fresh shell, with no runtime already installed (isaac-94c0)
+    A real shell starts with nothing registered; the in-process harness
+    pre-registers a session store, which hid this. Foreman's CLI boots the
+    Agent runtime the way `hail send` does, then queues the turn; the
+    server runs it.
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And the next isaac command starts in a fresh process
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
+    Then the stdout contains "beacon-7: dark -> tending (dusk)"
+    And the stderr does not contain "SessionStore"
+    And the exit code is 0
+    When isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern                          |
+      | tend-lamp \(turn\) submitted \S+ |
+    And the stdout does not contain "failed"
