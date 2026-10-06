@@ -189,7 +189,7 @@ Feature: Foreman — turn actions
     When isaac is run with "turns list"
     Then the stdout matches:
       | pattern               |
-      | lamp-room\s.*\s(queued|held) |
+      | lamp-room\s.*\squeued        |
     When the turn queue ticks at "2026-10-06T22:00:00Z"
     Then session "lamp-room" has transcript matching:
       | type    | message.role | message.content                   |
