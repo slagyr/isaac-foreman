@@ -170,3 +170,28 @@ Feature: Foreman — turn actions
       | pattern                          |
       | tend-lamp \(turn\) submitted \S+ |
     And the stdout does not contain "failed"
+
+  @wip
+  Scenario: a signal from a fresh shell only queues the turn; the server's queue runs it
+    Foreman pilot 1, second run: the shell's signal ran the queue tick in
+    its own process, claimed the turn, and exited with it half-started.
+    A shell queues; only a process running the queue worker runs turns.
+    Given the following model responses are queued:
+      | type | content    | model |
+      | text | Lamp lit.  | echo  |
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And the next isaac command starts in a fresh process
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
+    Then the exit code is 0
+    And session "lamp-room" has transcript not matching:
+      | type    | message.role | message.content                   |
+      | message | user         | #"Light the lamp at beacon-7.*"   |
+    When isaac is run with "turns list"
+    Then the stdout matches:
+      | pattern               |
+      | lamp-room\s.*\s(queued|held) |
+    When the turn queue ticks at "2026-10-06T22:00:00Z"
+    Then session "lamp-room" has transcript matching:
+      | type    | message.role | message.content                   |
+      | message | user         | #"Light the lamp at beacon-7.*"   |
+      | message | assistant    | Lamp lit.                         |
