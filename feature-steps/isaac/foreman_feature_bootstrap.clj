@@ -4,10 +4,22 @@
    ambiguous matches (isaac-iz35 / isaac-hooks pattern)."
   (:require
     [isaac.foundation.cli-steps :as cli-steps]
+    [clojure.string :as str]
     [isaac.foundation.logger :as log]
+    [gherclj.core :as g]
     [isaac.agent.turn.worker :as worker]))
 
 (log/set-output! :memory)
+
+(defonce ^:private parse-argv-wrapped?
+  (do
+    (alter-var-root #'cli-steps/parse-argv
+      (fn [orig]
+        (fn [args]
+          (orig (if-let [id (g/get :turn-id)]
+                  (str/replace args "#turn-id" id)
+                  args)))))
+    true))
 
 ;; isaac.agent.turn.submit/submit! is queue-only (isaac-e9jl/isaac-2lc4):
 ;; a :turn action fired by `foreman signal` enqueues a durable record but
@@ -29,7 +41,10 @@
 ;; just waits out whatever tick! already started; a no-op when nothing is.
 (cli-steps/register-isaac-run-postflight!
   (fn []
-    (worker/await-idle!)))
+    (worker/await-idle!)
+    (when-let [output (g/get :output)]
+      (when-let [[_ id] (re-find #"submitted\s+([a-z0-9-]+)" output)]
+        (g/assoc! :turn-id id)))))
 
 (def ^:private session-ns 'isaac.agent.session.session-steps)
 (def ^:private configurator-ns 'isaac.http.configurator-steps)

@@ -69,7 +69,6 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
       | pattern          |
       | beacon-7\s+dark  |
 
-  @wip
   Scenario: a dropped turn reaches the machine as turn-died (isaac-tais)
     Given a scripted resource pool "dock" admits 1 turn at a time
     And resource pool "dock" is closed
