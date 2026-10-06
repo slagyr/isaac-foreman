@@ -5,7 +5,10 @@
     [clojure.string :as str]
     [clojure.walk :as walk]
     [clojure.tools.cli :as tools-cli]
+    [isaac.agent.config.runtime :as runtime]
     [isaac.foundation.cli.api :as cli-api]
+    [isaac.foundation.cli.host :as host]
+    [isaac.foundation.config.loader :as loader]
     [isaac.foundation.config.root :as root]
     [isaac.foreman.core :as core]
     [isaac.foreman.test-runner :as test-runner]
@@ -71,8 +74,15 @@
         (throw (ex-info (str label " must be an EDN map") {})))
       value)))
 
+(defn- ensure-runtime! [opts]
+  (host/ensure-runtime!
+    {:install! (fn []
+                 (let [{:keys [root fs]} (env opts)]
+                   (runtime/install! {:config (loader/load-config! root fs "foreman")})))}))
+
 (defn- run-start [opts machine id data]
   (try
+    (ensure-runtime! opts)
     (core/start! (assoc (env opts) :machine machine :id id :data (parse-map "--data" data)))
     0
     (catch Exception e (fail e))))
@@ -80,6 +90,7 @@
 (defn- run-signal [opts machine id event event-id data]
   (try
     (let [parsed (parse-map "--data" data)]
+      (ensure-runtime! opts)
       (core/signal! (assoc (env opts) :machine machine :id id :event (keywordize event)
                            :event-id event-id :data parsed :source :cli)))
     0
@@ -94,6 +105,7 @@
 
 (defn- run-retry [opts machine id]
   (try
+    (ensure-runtime! opts)
     (core/retry! (assoc (env opts) :machine machine :id id))
     0
     (catch Exception e (fail e))))

@@ -154,7 +154,6 @@ Feature: Foreman — turn actions
       | type    | message.role | message.content |
       | message | assistant    | Duplicate turn  |
 
-  @wip
   Scenario: signal works from a fresh shell, with no runtime already installed (isaac-94c0)
     A real shell starts with nothing registered; the in-process harness
     pre-registers a session store, which hid this. Foreman's CLI boots the
