@@ -31,6 +31,7 @@ Feature: Foreman — turn actions
                      {:start :tending :event :foreman/turn-ended :end :unlit}]}
       """
 
+  @wip
   Scenario: a transition submits one turn; the crew's signal moves the machine
     Given the following model responses are queued:
       | model | tool_call      | arguments                                                               |
@@ -47,9 +48,10 @@ Feature: Foreman — turn actions
     Then the stdout matches:
       | pattern                                                      |
       | beacon-7\s+lit                                               |
-      | tend-lamp \(turn\) submitted \S+                             |
+      | tend-lamp turn started \S+                                   |
       | lit: tending -> lit\s+\[[^\]]+\] via tool                   |
     And the stdout does not contain "turn-ended"
+    And the stdout does not contain "pending:"
 
   Scenario: a turn action waits on a busy pool; the unsignaled turn takes the backstop row
     Given a scripted resource pool "dock" admits 1 turn at a time
@@ -86,6 +88,7 @@ Feature: Foreman — turn actions
       | beacon-7\s+unlit                                         |
       | foreman/turn-ended: tending -> unlit\s+\[[^\]]+\] via observer |
 
+  @wip
   Scenario: a refused submission stays pending with its error until retried
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
       """
@@ -114,9 +117,10 @@ Feature: Foreman — turn actions
     And the exit code is 0
     When isaac is run with "foreman status lighthouse-watch beacon-7"
     Then the stdout matches:
-      | pattern                          |
-      | beacon-7\s+unlit                 |
-      | tend-lamp \(turn\) submitted \S+ |
+      | pattern                    |
+      | beacon-7\s+unlit           |
+      | tend-lamp turn started \S+ |
+    And the stdout does not contain "pending:"
 
   Scenario: a retry after Foreman lost the request id makes no second turn
     The instance file below is what Foreman leaves if it dies after Agent

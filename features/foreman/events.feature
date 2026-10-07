@@ -7,7 +7,9 @@ Feature: Foreman — event intake
   A turn joins an instance through the observer ref
   foreman:<machine>/<instance> and reports :foreman/turn-started,
   :foreman/turn-ended (only for a turn that sent no signal: one outcome
-  per turn), :foreman/turn-failed, and :foreman/turn-died. The :foreman
+  per turn), :foreman/turn-failed, and :foreman/turn-died. A turn-started
+  with no row in the machine is history ("<action> turn started <id>"),
+  not an unhandled event. The :foreman
   namespace is reserved for these. A :foreman/turn-ended row keyed on a state the
   crew should have signaled out of is the machine's backstop.
 
@@ -108,6 +110,7 @@ Feature: Foreman — event intake
       | beacon-7\s+dark                                                            |
       | (?s)dusk: dark -> lit\s+\[tide-7\] via http.*dawn: lit -> dark\s+\[tide-8\] via cli |
 
+  @wip
   Scenario: a turn that signals moves the instance; it reports no turn-ended (one outcome per turn)
     Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
@@ -128,8 +131,9 @@ Feature: Foreman — event intake
     Then the stdout matches:
       | pattern                                                                        |
       | beacon-7\s+lit                                                                 |
-      | (?s)unhandled: foreman/turn-started.*dusk: dark -> lit\s+\[[^\]]+\] via tool |
+      | (?s)turn started \S+.*dusk: dark -> lit\s+\[[^\]]+\] via tool |
     And the stdout does not contain "turn-ended"
+    And the stdout does not contain "unhandled"
 
   Scenario: a turn that ends without signaling follows the backstop row; a failed turn follows its own
     Given the isaac file "config/machines/lighthouse-watch.edn" exists with:
