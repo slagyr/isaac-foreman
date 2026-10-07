@@ -251,6 +251,55 @@
     (should= "turn-17" (:request-id (first (:pending-actions
                                             (store/get-instance {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}))))))
 
+  (it "records a started turn as history without changing its pending action or warning"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-redefs [submit/submit! (fn [_] {:id "turn-17"}) worker/wake! (fn [])]
+        (with-out-str (sut/signal! (assoc opts :event :dusk))))
+      (let [err (java.io.StringWriter.)]
+        (binding [*err* err]
+          (with-out-str (sut/signal! (assoc opts :event :foreman/turn-started
+                                            :source :observer :request-id "turn-17"))))
+        (should-not (str/includes? (str err) "unhandled:")))
+      (should (str/includes? (with-out-str (sut/status opts)) "tend-lamp turn started turn-17"))
+      (should= "turn-17" (-> (store/get-instance opts) :pending-actions first :request-id))))
+
+  (it "clears only the matching turn after its reply even when no transition accepts the reply"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-redefs [submit/submit! (fn [_] {:id "turn-17"}) worker/wake! (fn [])]
+        (with-out-str (sut/signal! (assoc opts :event :dusk))))
+      (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended :source :observer :request-id "other-turn")))
+      (should= "turn-17" (-> (store/get-instance opts) :pending-actions first :request-id))
+      (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended :source :observer :request-id "turn-17")))
+      (should= [] (:pending-actions (store/get-instance opts)))))
+
+  (it "records an unsubmitted turn start without an action name"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-out-str (sut/signal! (assoc opts :event :foreman/turn-started
+                                          :source :observer :request-id "external-9")))
+      (let [status (with-out-str (sut/status opts))]
+        (should (str/includes? status "turn started external-9"))
+        (should-not (str/includes? status "unhandled")))))
+
+  (it "keeps the pending turn on unrelated transitions while it runs"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          table (update @table :transitions conj {:start :tending :event :pause :end :waiting})]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-redefs [submit/submit! (fn [_] {:id "turn-17"}) worker/wake! (fn [])]
+        (with-out-str (sut/signal! (assoc opts :event :dusk))))
+      (with-out-str (sut/signal! (assoc opts :event :pause)))
+      (should= "turn-17" (-> (store/get-instance opts) :pending-actions first :request-id))))
+
+  (it "clears a matching turn on its failed observer outcome"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
+      (with-redefs [submit/submit! (fn [_] {:id "turn-17"}) worker/wake! (fn [])]
+        (with-out-str (sut/signal! (assoc opts :event :dusk))))
+      (with-out-str (sut/signal! (assoc opts :event :foreman/turn-failed
+                                         :source :observer :request-id "turn-17")))
+      (should= [] (:pending-actions (store/get-instance opts)))))
+
   (it "wakes a newly accepted turn after persisting its request id"
     (let [at-wake (atom nil)]
       (with-redefs [submit/submit! (fn [_] {:id "turn-17"})

@@ -19,7 +19,7 @@
                                  :machine (get args "machine") :id (get args "instance")
                                  :event (keyword (get args "event")) :data (get args "data")
                                  :event-id (get args "id") :source :tool
-                                 :crew crew :session session}))]
+                                 :request-id (get args "request_id") :crew crew :session session}))]
         (turn-observer/record-signal! (get args "machine") (get args "instance")
                                       (get args "request_id"))
         {:result out})

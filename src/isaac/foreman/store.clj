@@ -119,6 +119,24 @@
                          (nil? event-id) (dissoc :id :source :data :crew :session :request-id)))
     (with-id (:id opts) rec)))
 
+(declare set-pending!)
+
+(defn record-turn-started!
+  [{:keys [fs event-id now source request-id action] :as opts}]
+  (append-event! fs (instance-events-path opts)
+                 {:type :turn-started :id event-id :at now :source source
+                  :request-id request-id :action action})
+  (get-instance opts))
+
+(defn clear-pending-turn!
+  [{:keys [request-id] :as opts}]
+  (when request-id
+    (let [entries (:pending-actions (get-instance opts))
+          remaining (filterv #(not (and (= :turn (:type %))
+                                        (= request-id (:request-id %)))) entries)]
+      (when (not= entries remaining)
+        (set-pending! (assoc opts :pending remaining))))))
+
 (defn history
   [{:keys [fs] :as opts}]
   (or (read-events fs (instance-events-path opts)) []))
@@ -134,10 +152,10 @@
 
 (defn unconsumed [opts]
   (let [records (history opts)
-        done (into #{} (keep #(when (#{:transition :unhandled} (:type %)) (:id %))) records)]
+        done (into #{} (keep #(when (#{:transition :unhandled :turn-started} (:type %)) (:id %))) records)]
     (filterv #(and (= :received (:type %)) (not (contains? done (:id %)))) records)))
 
-(declare list-instances)
+(declare list-instances set-pending!)
 
 (defn all-instance-keys [{:keys [fs root]}]
   (let [dir (str root "/foreman")]

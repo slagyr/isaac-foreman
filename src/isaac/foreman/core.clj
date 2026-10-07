@@ -155,12 +155,22 @@
         details (merge (select-keys opts [:fs :root :machine :id])
                        (select-keys envelope [:source :data :crew :session :request-id])
                        {:event event :event-id (:id envelope) :now ts})]
+    (when (and request-id
+               (or (= :reply source) (= :tool source)
+                   (and (= :observer source)
+                        (#{:foreman/turn-ended :foreman/turn-failed :foreman/turn-died} event))))
+      (store/clear-pending-turn! (assoc opts :request-id request-id)))
     (if (= :unhandled (:status result))
+      (if (and (= :foreman/turn-started event) (= :observer source))
+        (let [action (some #(when (= request-id (:request-id %)) (:name %))
+                           (:pending-actions inst))]
+          (store/record-turn-started! (assoc details :action action))
+          inst)
       (do (store/record-unhandled! (assoc details :state (:state inst)))
           (when (= :observer source)
             (binding [*out* *err*]
               (println (str "unhandled: " (subs (str event) 1) " (state " (name (:state inst)) ")"))))
-          inst)
+          inst))
       (let [updated (store/record-transition! (assoc details :from (:state inst) :to (:state result)
                                                         :actions (:actions result)))
             {:keys [pending failure replies]} (apply-actions! opts table shared (:actions result) envelope)
@@ -232,6 +242,8 @@
   (case (:type rec)
     :transition (str (subs (str (:event rec)) 1) ": "
                      (name (:from rec)) " -> " (name (:to rec)) suffix)
+    :turn-started (str (when-let [action (:action rec)] (str (name action) " "))
+                       "turn started " (:request-id rec))
     :unhandled  (str "unhandled: " (subs (str (:event rec)) 1) suffix)
     :duplicate (str "duplicate: " (subs (str (:event rec)) 1) suffix)
     :received nil

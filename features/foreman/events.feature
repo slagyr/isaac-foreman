@@ -110,7 +110,6 @@ Feature: Foreman — event intake
       | beacon-7\s+dark                                                            |
       | (?s)dusk: dark -> lit\s+\[tide-7\] via http.*dawn: lit -> dark\s+\[tide-8\] via cli |
 
-  @wip
   Scenario: a turn that signals moves the instance; it reports no turn-ended (one outcome per turn)
     Given the crew "bartholomew" allows tools: "foreman/signal"
     And the isaac EDN file "config/crew/bartholomew.edn" exists with:
