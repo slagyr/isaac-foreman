@@ -9,8 +9,11 @@
   :foreman/data {:factory isaac.foreman.tool/foreman-data-tool-factory}}
 
  :isaac.http/route
- [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler}
-  {:method :post :path "/foreman/instances/:machine/:id/data" :handler isaac.foreman.http/data-handler}]
+ [{:method :post :path "/foreman/events" :handler isaac.foreman.http/handler :scope :foreman/write}
+  {:method :post :path "/foreman/instances/:machine/:id/data" :handler isaac.foreman.http/data-handler :scope :foreman/write}
+  {:method :post :path "/foreman/instances" :handler isaac.foreman.http/start-handler :scope :foreman/write}
+  {:method :get :path "/foreman/instances/:machine/:id" :handler isaac.foreman.http/instance-handler :scope :foreman/read}
+  {:method :get :path "/foreman/instances/:machine" :handler isaac.foreman.http/list-handler :scope :foreman/read}]
 
  :isaac/cli
  {:foreman

@@ -18,7 +18,6 @@ Feature: Foreman over HTTP (isaac-v557)
                      {:start :lit  :event :dawn :end :dark}]}
       """
 
-  @wip
   Scenario: POST /foreman/instances starts an instance with its data
     When a POST request is made to "/foreman/instances":
       | key                  | value                                                                             |
@@ -33,7 +32,6 @@ Feature: Foreman over HTTP (isaac-v557)
       | beacon-7\s+dark        |
       | :keeper\s+"Ada"        |
 
-  @wip
   Scenario: a start may fire the first event in the same call
     When a POST request is made to "/foreman/instances":
       | key                  | value                                                                   |
@@ -48,7 +46,6 @@ Feature: Foreman over HTTP (isaac-v557)
       | beacon-7\s+lit                           |
       | dusk: dark -> lit\s+\[[^\]]+\] via http  |
 
-  @wip
   Scenario: a second start of the same instance is refused, and so is an unknown machine
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And a POST request is made to "/foreman/instances":
@@ -66,7 +63,6 @@ Feature: Foreman over HTTP (isaac-v557)
     Then the response status is 404
     And the response body has a "error" key
 
-  @wip
   Scenario: GET /foreman/instances/<machine>/<id> shows the state, data and history
     When isaac is run with "foreman start lighthouse-watch beacon-7 --data {:keeper \"Ada\"}"
     And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
@@ -85,7 +81,6 @@ Feature: Foreman over HTTP (isaac-v557)
       | header.Authorization | Bearer secret123 |
     Then the response status is 404
 
-  @wip
   Scenario: GET /foreman/instances/<machine> lists its instances
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
@@ -99,7 +94,6 @@ Feature: Foreman over HTTP (isaac-v557)
     And the response body has "instances[1].id" equal to "beacon-9"
     And the response body has "instances[1].state" equal to "dark"
 
-  @wip
   Scenario: writing needs foreman/write and reading needs foreman/read
     Given principal "dispatcher" is configured with secret "dispatch-secret" and scopes "foreman/write"
     And principal "watcher" is configured with secret "watch-secret" and scopes "foreman/read"
