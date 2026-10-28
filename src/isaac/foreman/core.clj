@@ -88,6 +88,10 @@
                           (submit-pending! opts table shared entry)
                           entry)) entries)]
     (store/set-pending! (assoc opts :pending updated))
+    (let [submitted (into #{} (keep #(when (= :turn-submitted (:type %)) (:request-id %))) (store/history opts))]
+      (doseq [{:keys [type request-id key]} updated
+              :when (and (= :turn type) request-id (not (contains? submitted request-id)))]
+        (store/record-turn-submitted! (assoc opts :request-id request-id :key key))))
     (when (some #(and (= :turn (:type %)) (:request-id %)) updated)
       (worker/wake!))
     (doseq [{:keys [name type request-id]} updated :when (and (= :turn type) request-id)]
@@ -146,12 +150,32 @@
 
 (declare signal!)
 
+(defn- current-turn-outcome?
+  "Only a turn submitted on the transition into this stay may resolve it."
+  [opts inst request-id]
+  (let [entry-id (->> (store/history opts)
+                      (filter #(= :transition (:type %)))
+                      last :id)
+        prefix (str (name (:machine opts)) "/" (name (:id opts)) "/" entry-id "/")]
+    (and request-id entry-id
+         (some #(and (= request-id (:request-id %))
+                     (= :turn (:type %))
+                     (str/starts-with? (:key %) prefix))
+               (:pending-actions inst)))))
+
 (defn- consume! [opts table shared envelope]
   (let [{:keys [fs root machine id]} opts
         {:keys [event source data crew session request-id]} envelope
         ts   (:at envelope)
         inst (store/get-instance opts)
-        result (machine/step table (:state inst) event)
+        outcome? (or (= :reply source)
+                     (and (= :observer source)
+                          (#{:foreman/turn-ended :foreman/turn-failed :foreman/turn-died} event)))
+        stale? (and outcome? request-id
+                    (some #(and (= :turn-submitted (:type %)) (= request-id (:request-id %)))
+                          (store/history opts))
+                    (not (current-turn-outcome? opts inst request-id)))
+        result (if stale? {:status :unhandled} (machine/step table (:state inst) event))
         details (merge (select-keys opts [:fs :root :machine :id])
                        (select-keys envelope [:source :data :crew :session :request-id])
                        {:event event :event-id (:id envelope) :now ts})]
@@ -220,7 +244,7 @@
           receipt (store/receive! (assoc opts :event-id eid) envelope)]
       (when-not (:duplicate receipt)
         (drain! opts table shared))
-      (if-let [refused (and (not= :observer src) (unhandled-outcome opts eid))]
+      (if-let [refused (and (not (#{:observer :reply} src)) (unhandled-outcome opts eid))]
         (throw (ex-info (machine/refusal-message (:event refused) (:state refused))
                         {:foreman/refused true :event (:event refused) :state (:state refused)}))
         receipt))))

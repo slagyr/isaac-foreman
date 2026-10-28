@@ -93,7 +93,6 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
       | pattern            |
       | beacon-7\s+stalled |
 
-  @wip
   Scenario: a turn from an earlier stay in a state cannot move the instance (isaac-mo02)
     The horn sounded when the lamp first stalled. The keeper resumed before
     it finished, so the instance is tending again and waiting on the new

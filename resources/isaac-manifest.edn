@@ -1,5 +1,5 @@
 {:id       :isaac.foreman
- :version  "0.6.0"
+ :version  "0.6.1"
  :builtin? true
  :handbook "isaac/foreman/handbook.md"
  :factory  isaac.foreman.module/create-module

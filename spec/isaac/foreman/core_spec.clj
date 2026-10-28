@@ -272,6 +272,44 @@
       (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended :source :observer :request-id "turn-17")))
       (should= [] (:pending-actions (store/get-instance opts)))))
 
+  (it "ignores an old turn's end and reply after returning to the same state"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          ids (atom ["turn-old" "turn-horn" "turn-new"])
+          table (assoc @table
+                       :actions {:tend-lamp (:tend-lamp (:actions @table))
+                                 :sound-horn {:type :turn :frequencies {:session "horn-room"} :prompt "Sound horn"}}
+                       :transitions [{:start :dark :event :dusk :end :tending :actions [:tend-lamp]}
+                                     {:start :tending :event :foreman/turn-ended :end :stalled :actions [:sound-horn]}
+                                     {:start :stalled :event :resume :end :tending :actions [:tend-lamp]}
+                                     {:start :tending :event :lit :end :lit}])]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-redefs [submit/submit! (fn [_] (let [id (first @ids)] (swap! ids rest) {:id id}))
+                    worker/wake! (fn [])]
+        (with-out-str (sut/signal! (assoc opts :event :dusk :event-id "dusk-1")))
+        (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended :source :observer :request-id "turn-old")))
+        (with-out-str (sut/signal! (assoc opts :event :resume :event-id "resume-1")))
+        (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended :source :observer :request-id "turn-horn")))
+        (should= :tending (:state (store/get-instance opts)))
+        (should= :unhandled (:type (last (store/history opts))))
+        (with-out-str (sut/signal! (assoc opts :event :lit :source :reply :request-id "turn-old")))
+        (should= :tending (:state (store/get-instance opts)))
+        (with-out-str (sut/signal! (assoc opts :event :lit :source :reply :request-id "turn-new")))
+        (should= :lit (:state (store/get-instance opts))))))
+
+  (it "accepts an external turn's ending even when its request id is not a pending action"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}
+          table (update @table :transitions conj {:start :dark :event :foreman/turn-ended :end :unlit})]
+      (fs/spit @mem (str @root "/config/isaac.edn")
+               (pr-str {:defaults {:frequencies {:crew "main"} :crew {:model "grover"}}
+                        :crew {"main" {}} :models {"grover" {:model "echo" :provider :grover :context-window 32768}}
+                        :providers {"grover" {}} :machines {"lighthouse-watch" table}}))
+      (with-out-str (sut/signal! (assoc opts :event :foreman/turn-ended
+                                         :source :observer :request-id "external-9")))
+      (should= :unlit (:state (store/get-instance opts)))))
+
   (it "records an unsubmitted turn start without an action name"
     (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"}]
       (with-out-str (sut/signal! (assoc opts :event :foreman/turn-started

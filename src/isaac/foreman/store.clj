@@ -128,6 +128,11 @@
                   :request-id request-id :action action})
   (get-instance opts))
 
+(defn record-turn-submitted!
+  [{:keys [fs request-id key] :as opts}]
+  (append-event! fs (instance-events-path opts)
+                 {:type :turn-submitted :request-id request-id :key key}))
+
 (defn clear-pending-turn!
   [{:keys [request-id] :as opts}]
   (when request-id
