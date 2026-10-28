@@ -92,3 +92,61 @@ Feature: Foreman — turn outcomes (isaac-8j0t)
     Then the stdout matches:
       | pattern            |
       | beacon-7\s+stalled |
+
+  @wip
+  Scenario: a turn from an earlier stay in a state cannot move the instance (isaac-mo02)
+    The horn sounded when the lamp first stalled. The keeper resumed before
+    it finished, so the instance is tending again and waiting on the new
+    lamp turn. The horn's quiet end belongs to the stall, not to this stay
+    in tending: it is recorded unhandled and the lamp turn decides.
+    Given a scripted resource pool "dock" admits 1 turn at a time
+    And resource pool "dock" is closed
+    And a scripted resource pool "pier" admits 1 turn at a time
+    And the following sessions exist:
+      | name      | crew        |
+      | horn-room | bartholomew |
+    And the isaac file "config/machines/lighthouse-watch.edn" exists with:
+      """
+      {:initial :dark
+       :actions {:tend-lamp  {:type           :turn
+                              :frequencies    {:session "lamp-room"}
+                              :resource-pools ["pier"]
+                              :output         :event
+                              :prompt         "Tend the lamp at {{instance}}."}
+                 :sound-horn {:type           :turn
+                              :frequencies    {:session "horn-room"}
+                              :resource-pools ["dock"]
+                              :prompt         "Sound the horn for {{instance}}."}}
+       :transitions [{:start :dark    :event :dusk               :end :tending :actions [:tend-lamp]}
+                     {:start :tending :event :lit                :end :lit}
+                     {:start :tending :event :foreman/turn-ended :end :stalled :actions [:sound-horn]}
+                     {:start :stalled :event :resume             :end :tending :actions [:tend-lamp]}]}
+      """
+    And the following model responses are queued:
+      | type | content                  | model |
+      | text | The wick is still wet.   | echo  |
+      | text | Horn sounded.            | echo  |
+      | text | Wick dried.\nevent: lit  | echo  |
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk"
+    And isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern            |
+      | beacon-7\s+stalled |
+    Given resource pool "pier" is closed
+    When isaac is run with "foreman signal lighthouse-watch beacon-7 resume"
+    And resource pool "dock" is opened
+    Then session "horn-room" has transcript matching:
+      | type    | message.role | message.content |
+      | message | assistant    | Horn sounded.   |
+    When isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern                       |
+      | beacon-7\s+tending            |
+      | unhandled: foreman/turn-ended |
+    When resource pool "pier" is opened
+    And isaac is run with "foreman status lighthouse-watch beacon-7"
+    Then the stdout matches:
+      | pattern                                    |
+      | beacon-7\s+lit                             |
+      | lit: tending -> lit\s+\[[^\]]+\] via reply |
