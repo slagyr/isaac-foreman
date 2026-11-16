@@ -5,7 +5,8 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.foundation.fs :as fs]))
+    [isaac.foundation.fs :as fs]
+    [isaac.foreman.bus :as bus]))
 
 (defn- machine-dir [{:keys [root machine]}]
   (str root "/foreman/" (name machine)))
@@ -24,13 +25,16 @@
   (fs/mkdirs fs* (fs/parent path))
   (fs/spit fs* path (pr-str data)))
 
-(defn- append-event! [fs* path rec]
+(defn- append-event! [{:keys [fs root machine id] :as opts} rec]
+  (let [fs* fs
+        path (instance-events-path opts)]
   (fs/mkdirs fs* (fs/parent path))
   (let [prefix (when (and (fs/exists? fs* path)
                           (let [text (fs/slurp fs* path)]
                             (and (seq text) (not (str/ends-with? text "\n")))))
                  "\n")]
-    (fs/spit fs* path (str prefix (pr-str rec) "\n") :append true)))
+    (fs/spit fs* path (str prefix (pr-str rec) "\n") :append true)
+    (bus/publish! {:root root :machine (name machine) :instance (name id) :record rec}))))
 
 (defn- read-events [fs* path]
   (when (fs/exists? fs* path)
@@ -78,12 +82,11 @@
 (defn record-transition!
   [{:keys [fs from to event actions now event-id source data crew session request-id] :as opts}]
   (let [edn-path (instance-edn-path opts)
-        ev-path  (instance-events-path opts)
         rec      (or (read-edn fs edn-path)
                      (throw (ex-info (str "unknown instance: " (name (:id opts)))
                                      {:id (:id opts)})))
         updated  (assoc rec :state to :since now :data (merge-data (:data rec) data))]
-    (append-event! fs ev-path (cond-> {:type    :transition
+    (append-event! opts (cond-> {:type    :transition
                                :from    from
                                :to      to
                                :event   event
@@ -102,11 +105,10 @@
 (defn record-unhandled!
   [{:keys [fs state event now event-id source data crew session request-id] :as opts}]
   (let [edn-path (instance-edn-path opts)
-        ev-path  (instance-events-path opts)
         rec      (or (read-edn fs edn-path)
                      (throw (ex-info (str "unknown instance: " (name (:id opts)))
                                      {:id (:id opts)})))]
-    (append-event! fs ev-path (cond-> {:type  :unhandled
+    (append-event! opts (cond-> {:type  :unhandled
                                :event event
                                :state state
                                :at    now
@@ -123,18 +125,18 @@
 
 (defn record-turn-started!
   [{:keys [fs event-id now source request-id action] :as opts}]
-  (append-event! fs (instance-events-path opts)
+  (append-event! opts
                  {:type :turn-started :id event-id :at now :source source
                   :request-id request-id :action action})
   (get-instance opts))
 
 (defn record-action-skipped! [{:keys [fs action] :as opts} reason]
-  (append-event! fs (instance-events-path opts)
+  (append-event! opts
                  {:type :action-skipped :action action :reason reason}))
 
 (defn record-turn-submitted!
   [{:keys [fs request-id key] :as opts}]
-  (append-event! fs (instance-events-path opts)
+  (append-event! opts
                  {:type :turn-submitted :request-id request-id :key key}))
 
 (defn clear-pending-turn!
@@ -155,7 +157,7 @@
   [{:keys [fs event-id] :as opts} envelope]
   (let [history (history opts)
         duplicate? (some #(= event-id (:id %)) history)]
-    (append-event! fs (instance-events-path opts)
+    (append-event! opts
                    (assoc envelope :type (if duplicate? :duplicate :received)))
     {:id event-id :duplicate (boolean duplicate?)}))
 

@@ -20,7 +20,8 @@
  {:foreman
   {:usage     "foreman <subcommand> [options]"
    :summary   "Drive and inspect machine instances"
-   :namespace isaac.foreman.cli}}
+   :namespace isaac.foreman.cli
+   :server-only true}}
 
  :berths {:isaac.foreman/action
           {:description "Foreman action implementations keyed by action type"

@@ -112,7 +112,6 @@ Feature: Foreman — event stream (isaac-wsm6)
       | header.Authorization | Bearer lamp123 |
     Then the response status is 403
 
-  @wip
   Scenario: two watchers each receive a transition exactly once (isaac-18wa)
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And a client opens a stream to "/foreman/stream?machine=lighthouse-watch":
@@ -137,7 +136,6 @@ Feature: Foreman — event stream (isaac-wsm6)
       | key | value   |
       | id  | tide-42 |
 
-  @wip
   Scenario: a watcher that disconnects leaves later signals and new watchers unharmed (isaac-18wa)
     When isaac is run with "foreman start lighthouse-watch beacon-7"
     And a client opens a stream to "/foreman/stream?machine=lighthouse-watch":

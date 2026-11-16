@@ -3,6 +3,7 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.foreman.store :as sut]
+    [isaac.foreman.bus :as bus]
     [isaac.foundation.fs :as fs]
     [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
@@ -65,6 +66,26 @@
         (should= {:type :transition :from :dark :to :lit :event :dusk :actions [:light-lamp]
                   :at "2026-03-01T18:00:00Z"}
                  (edn/read-string (first lines))))))
+
+  (it "fans persisted records to all subscribers without letting a broken watcher stop a writer"
+    (let [opts {:fs @mem :root @root :machine "lighthouse-watch" :id "beacon-7"
+                :from :dark :to :lit :event :dusk :actions [] :now "2026-03-01T18:00:00Z"}
+          first-events (atom [])
+          second-events (atom [])
+          stop-first (bus/subscribe! #(swap! first-events conj %) )
+          stop-second (bus/subscribe! #(swap! second-events conj %))
+          stop-broken (bus/subscribe! (fn [_] (throw (Exception. "disconnected"))))]
+      (try
+        (sut/create-instance! (assoc opts :state :dark))
+        (sut/record-transition! opts)
+        (should= [:transition] (mapv (comp :type :record) @first-events))
+        (should= @first-events @second-events)
+        (should= "beacon-7" (:instance (first @first-events)))
+        (stop-first)
+        (sut/record-unhandled! (assoc opts :state :lit :event :rain))
+        (should= 1 (count @first-events))
+        (should= [:transition :unhandled] (mapv (comp :type :record) @second-events))
+        (finally (stop-first) (stop-second) (stop-broken)))))
 
   (it "records unhandled events without changing state"
     (sut/create-instance! {:fs @mem :root @root :machine "lighthouse-watch"
