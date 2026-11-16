@@ -111,3 +111,46 @@ Feature: Foreman — event stream (isaac-wsm6)
       | key                  | value          |
       | header.Authorization | Bearer lamp123 |
     Then the response status is 403
+
+  @wip
+  Scenario: two watchers each receive a transition exactly once (isaac-18wa)
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And a client opens a stream to "/foreman/stream?machine=lighthouse-watch":
+      | key                  | value            |
+      | header.Authorization | Bearer secret123 |
+    And a second client opens a stream to "/foreman/stream?machine=lighthouse-watch":
+      | key                  | value            |
+      | header.Authorization | Bearer secret123 |
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk --id tide-42"
+    Then the stream delivers an event matching:
+      | key  | value      |
+      | type | transition |
+      | id   | tide-42    |
+    And the second stream delivers an event matching:
+      | key  | value      |
+      | type | transition |
+      | id   | tide-42    |
+    And the stream has delivered exactly 1 event matching:
+      | key | value   |
+      | id  | tide-42 |
+    And the second stream has delivered exactly 1 event matching:
+      | key | value   |
+      | id  | tide-42 |
+
+  @wip
+  Scenario: a watcher that disconnects leaves later signals and new watchers unharmed (isaac-18wa)
+    When isaac is run with "foreman start lighthouse-watch beacon-7"
+    And a client opens a stream to "/foreman/stream?machine=lighthouse-watch":
+      | key                  | value            |
+      | header.Authorization | Bearer secret123 |
+    And the client closes the stream
+    And isaac is run with "foreman signal lighthouse-watch beacon-7 dusk --id tide-43"
+    Then the exit code is 0
+    When a second client opens a stream to "/foreman/stream?machine=lighthouse-watch":
+      | key                  | value            |
+      | header.Authorization | Bearer secret123 |
+    Then the second stream delivers an event matching:
+      | key      | value    |
+      | type     | state    |
+      | instance | beacon-7 |
+      | state    | lit      |
