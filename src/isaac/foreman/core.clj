@@ -50,6 +50,10 @@
 
 (defn- submit-pending! [opts table shared entry]
   (let [spec (machine/resolve-action table (:name entry) shared)]
+    (if (let [session (get-in entry [:frequencies :session])]
+          (and (string? session) (str/blank? session)))
+      (do (store/record-action-skipped! (assoc opts :action (:name entry)) "no target session")
+          (assoc entry :skipped true))
     (try
       (let [request (turn-submit/submit!
                       (merge (select-keys opts [:fs :root :machine])
@@ -74,7 +78,7 @@
                               :key (:key entry)}))]
         (assoc entry :request-id (:id request) :error nil))
       (catch Exception e
-        (assoc entry :error (str/replace (ex-message e) #"^unknown resource pool: " "unknown resource pool "))))))
+        (assoc entry :error (str/replace (ex-message e) #"^unknown resource pool: " "unknown resource pool ")))))))
 
 (defn retry!
   "Resubmit persisted actions; Agent's idempotency key handles a lost acknowledgement."
@@ -87,7 +91,7 @@
                         (if (and (= :turn (:type entry)) (nil? (:request-id entry)))
                           (submit-pending! opts table shared entry)
                           entry)) entries)]
-    (store/set-pending! (assoc opts :pending updated))
+    (store/set-pending! (assoc opts :pending (remove :skipped updated)))
     (let [submitted (into #{} (keep #(when (= :turn-submitted (:type %)) (:request-id %))) (store/history opts))]
       (doseq [{:keys [type request-id key]} updated
               :when (and (= :turn type) request-id (not (contains? submitted request-id)))]
@@ -266,6 +270,7 @@
   (case (:type rec)
     :transition (str (subs (str (:event rec)) 1) ": "
                      (name (:from rec)) " -> " (name (:to rec)) suffix)
+    :action-skipped (str (name (:action rec)) " skipped: " (:reason rec))
     :turn-started (str (when-let [action (:action rec)] (str (name action) " "))
                        "turn started " (:request-id rec))
     :unhandled  (str "unhandled: " (subs (str (:event rec)) 1) suffix)

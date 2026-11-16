@@ -6,7 +6,18 @@
     [isaac.foundation.config.loader :as loader]
     [isaac.foreman.core :as core]
     [isaac.foundation.fs :as fs]
-    [isaac.foreman.store :as store]))
+    [isaac.foreman.store :as store]
+    [isaac.foreman.stream :as stream]))
+
+(defn stream-handler [request]
+  (let [params (or (:query-params request)
+                   (some-> (:query-string request) (clojure.string/split #"&")
+                           (->> (map #(clojure.string/split % #"=" 2)) (into {}))))
+        machine (or (get params "machine") (:machine params))
+        instance (or (get params "instance") (:instance params))]
+    (if (str/blank? machine)
+      {:status 400 :body "machine required"}
+      (stream/open! request machine instance))))
 
 (defn- format-of [request]
   (if (str/includes? (or (get-in request [:headers "content-type"])

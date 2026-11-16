@@ -1,4 +1,3 @@
-@wip
 Feature: Foreman — stall alerts go to the dispatcher (isaac-wsm6)
   The agent that dispatches an instance names where its alerts go by
   starting it with data {:alert {:session "<its session>"}}. A machine's

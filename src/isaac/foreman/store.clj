@@ -128,6 +128,10 @@
                   :request-id request-id :action action})
   (get-instance opts))
 
+(defn record-action-skipped! [{:keys [fs action] :as opts} reason]
+  (append-event! fs (instance-events-path opts)
+                 {:type :action-skipped :action action :reason reason}))
+
 (defn record-turn-submitted!
   [{:keys [fs request-id key] :as opts}]
   (append-event! fs (instance-events-path opts)

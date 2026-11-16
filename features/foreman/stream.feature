@@ -1,4 +1,3 @@
-@wip
 Feature: Foreman — event stream (isaac-wsm6)
   A dispatcher watches its machines instead of polling them.
   GET /foreman/stream?machine=<id>[&instance=<id>] answers text/event-stream
