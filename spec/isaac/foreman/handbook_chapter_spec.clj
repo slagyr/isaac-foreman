@@ -32,9 +32,11 @@
 (defn- cli-commands-mentioned
   "The word immediately following `isaac ` wherever it appears — inline
    code, fenced examples, or plain prose — for every top-level `isaac
-   <command>` invocation in `text`."
+   <command>` invocation in `text`. `isaac remote <name> -- <command>` names
+   <command>: remote is cli-proxy's, and the command runs on the server."
   [text]
-  (->> (re-seq #"isaac\s+([a-zA-Z][a-zA-Z0-9_-]*)" text)
+  (->> (re-seq #"isaac\s+([a-zA-Z][a-zA-Z0-9_-]*)"
+               (str/replace text #"isaac\s+remote\s+\S+\s+--\s+" "isaac "))
        (map second)
        distinct))
 
