@@ -157,9 +157,15 @@ only to shadow it entirely.
 
 ## Instances, and signaling one
 
+The `foreman` command is server-only: it runs inside the Isaac server, so
+reach it with `isaac remote <name> -- foreman …`. On the server's own host,
+a remote whose url is the server's loopback `/cli` address (from
+`state/cli-server.edn`) needs no token. Typed locally, `isaac foreman` refuses
+with that hint.
+
 An **instance** is one running copy of a machine, identified by a plain
 string id you choose (a session key, an external record id, anything
-stable). Birth one with `isaac foreman start <machine> <id>` — it lands at
+stable). Birth one with `isaac remote <name> -- foreman start <machine> <id>` — it lands at
 the machine's `:initial` state; starting an id that already exists is
 refused. There's no config path for this — instances are **runtime state**
 under Isaac's root, not declarative config, the same distinction
@@ -168,7 +174,7 @@ else.
 
 An instance moves by being **signaled** with an event, through one of four
 doors, all converging on the same durable path: the crew tool
-`foreman__signal`, `POST /foreman/events`, `isaac foreman signal <machine>
+`foreman__signal`, `POST /foreman/events`, `isaac remote <name> -- foreman signal <machine>
 <id> <event>`, and a **turn observer** ref `foreman:<machine>/<instance>`
 (attached to a turn with `--observer`, or via a machine's own config —
 see Turn actions, below) that automatically signals `:foreman/turn-started`,
@@ -202,10 +208,10 @@ design, an unhandled signal from that source is recorded in history and
 logged to stderr, but never raised as an error back into the turn — see
 Turn actions, below, for the "backstop row" pattern this implies.
 
-`isaac foreman status <machine> <id>` shows one instance: current state,
+`isaac remote <name> -- foreman status <machine> <id>` shows one instance: current state,
 since-timestamp, any pending actions, and its full transition/unhandled/
 duplicate history, each line noting the event id, the door it arrived
-through, and (when known) the signaling crew and session. `isaac foreman
+through, and (when known) the signaling crew and session. `isaac remote <name> -- foreman
 list <machine>` surveys every instance of a machine, `--state <s>` narrows
 it to one state.
 
@@ -213,16 +219,16 @@ it to one state.
 
 - **A signal is refused with "no transition for `<event>` from
   `<state>`".** The machine has no row (explicit or `:*`) for that event
-  from the instance's current state. Check `isaac foreman status` for the
+  from the instance's current state. Check `isaac remote <name> -- foreman status` for the
   actual current state before assuming the config is wrong — a prior
   signal may have moved it further than expected.
 - **The same signal seems to have been silently ignored a second time.**
-  Check `isaac foreman status` history for a `duplicate:` line at that
+  Check `isaac remote <name> -- foreman status` history for a `duplicate:` line at that
   event id — a repeated id is expected to be a no-op, on any door, by
   design.
 - **An instance you expected to exist reports "unknown instance".** It was
-  never started (`isaac foreman start <machine> <id>`), or the id has a
-  typo — `isaac foreman list <machine>` shows what actually exists.
+  never started (`isaac remote <name> -- foreman start <machine> <id>`), or the id has a
+  typo — `isaac remote <name> -- foreman list <machine>` shows what actually exists.
 - **A turn's lifecycle events aren't moving the instance, and nothing
   looks broken.** Confirm the machine actually has rows for
   `:foreman/turn-started`/`:foreman/turn-ended`/`:foreman/turn-failed`/`:foreman/turn-died` from the
@@ -234,7 +240,7 @@ it to one state.
 
 When a transition's actions include a `:turn` action, Foreman submits one
 turn to `isaac.agent` and records it as **pending** on the instance (shown
-under `pending:` in `isaac foreman status`) until that turn's outcome
+under `pending:` in `isaac remote <name> -- foreman status`) until that turn's outcome
 comes back through the turn-observer door (see Instances, above). Each
 submission's idempotency key is `<machine>/<instance>/<event-id>/
 <action>` — `isaac.agent` refuses a second request with the same key, so
@@ -244,7 +250,7 @@ turn for it.
 If a `:turn` action's submission is **refused** outright at submit time
 (most commonly: `resource-pools` names a pool that doesn't exist), the
 pending entry records the error and stays pending — nothing is retried
-automatically. `isaac foreman retry <machine> <id>` re-attempts every
+automatically. `isaac remote <name> -- foreman retry <machine> <id>` re-attempts every
 still-pending `:turn` action on that instance; a submission that already
 has an accepted request id is left alone, so retry is always safe to run
 speculatively. Foreman also calls retry automatically right after
@@ -265,9 +271,9 @@ unhandled turn-lifecycle history and never leave the awaiting state.
 
 ### Troubleshooting
 
-- **`isaac foreman status` shows a pending `:turn` action with a
+- **`isaac remote <name> -- foreman status` shows a pending `:turn` action with a
   `failed:` note.** The submission was refused (commonly an unknown
-  resource pool). Fix the config the error names, then run `isaac foreman
+  resource pool). Fix the config the error names, then run `isaac remote <name> -- foreman
   retry <machine> <id>` — or just re-signal the event again if the
   machine will still accept it.
 - **`foreman retry` reports nothing to do, but you expected a retry.** A
@@ -285,7 +291,7 @@ unhandled turn-lifecycle history and never leave the awaiting state.
 
 ## Machine tests
 
-`isaac foreman test <file.feature>…` runs Gherkin scenarios written
+`isaac remote <name> -- foreman test <file.feature>…` runs Gherkin scenarios written
 **only** for this module's own fixed step vocabulary, purely against the
 pure transition engine — no instance is created, no turn is submitted, no
 `:log` action prints, and nothing is persisted. It's a config-testing tool
